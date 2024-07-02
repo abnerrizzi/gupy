@@ -51,7 +51,7 @@ class DatabaseManager:
         self.conn.commit()
 
 # URL for the initial company list
-limit = 23
+limit = 3000
 url = f'https://portal.api.gupy.io/api/company?limit={limit}'
 response = requests.get(url)
 data = response.json()
@@ -67,7 +67,7 @@ for company_data in tqdm.tqdm(data['data']):
     company_career_page_url = company_data['careerPageUrl']
     friendly_badge = company_data['badges']['friendlyBadge']
 
-    # print(f"Company: [{company_id}] \t{company_name}")
+    print(f"Company: [{company_id}] \t{company_name}")
 
     # Insert company information into the database
     company_id = db_manager.insert_company(
