@@ -4,10 +4,14 @@ import json
 import tqdm
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import datetime
 
 # CSV file paths
-companies_csv_path = 'companies.csv'
-jobs_csv_path = 'jobs.csv'
+ts='{:%Y%m%d-%H%M%S}'.format(datetime.datetime.now())
+threads=16
+folder = '.'
+companies_csv_path = f'{folder}/companies-{ts}.csv'
+jobs_csv_path = f'{folder}/jobs-{ts}.csv'
 
 # Function to fetch and process job data
 def fetch_and_process_job_data(company):
@@ -61,14 +65,13 @@ with open(companies_csv_path, mode='w', newline='', encoding='utf-8') as compani
     jobs_writer.writerow(['id', 'company_id', 'title', 'type', 'department', 'workplace_city', 'workplace_state', 'workplace_type'])
 
     # URL for the initial company list
-    limit = 3000
-    url = f'https://portal.api.gupy.io/api/company?limit={limit}'
+    url = f'https://portal.api.gupy.io/api/company?limit=33'
     response = requests.get(url)
     data = response.json()
     
     companies = data['data']
     
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=threads) as executor:
         future_to_company = {executor.submit(fetch_and_process_job_data, company): company for company in companies}
         
         for future in tqdm.tqdm(as_completed(future_to_company), total=len(companies)):
