@@ -7,9 +7,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import datetime
 
 # CSV file paths
-ts='{:%Y%m%d-%H%M%S}'.format(datetime.datetime.now())
-threads=16
 folder = '.'
+threads=16
+ts='{:%Y%m%d-%H%M%S}'.format(datetime.datetime.now())
 companies_csv_path = f'{folder}/companies-{ts}.csv'
 jobs_csv_path = f'{folder}/jobs-{ts}.csv'
 
