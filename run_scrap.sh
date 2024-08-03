@@ -3,8 +3,9 @@
 ts=$(date +%Y%m%d-%H%M%S)
 folder=${1:-out/}
 
-# Ensure folder ends with a slash
+# Ensure folder ends with a slash and create it
 folder="${folder%/}/"
+mkdir -p "$folder"
 
 # Check if `app/main.py` exists and is executable
 if [ ! -x "app/main.py" ]; then
