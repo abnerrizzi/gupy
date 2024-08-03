@@ -7,5 +7,5 @@ COPY app/* app/
 RUN pip install --no-cache-dir -r app/requirements.txt
 
 COPY *.sh *.sql .
-
+RUN apk add sqlite
 ENTRYPOINT ["/bin/sh"]
