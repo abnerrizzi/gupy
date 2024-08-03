@@ -58,18 +58,9 @@ jobs:
         id: run_container
         run: |
           docker run --name my-app-container \
-          -v ./app/out/:/app/out/ \
+          -v ./out/:/app/out/ \
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh | tee result.log
-          tree
-          cat result.log
-          last_line=$(tail -n 1 result.log)
-          docker cp my-app-container:/app/${lastline} /app/out/gupy_from_csv.db
-
-      - name: Stop and remove Docker container
-        run: |
-          docker rm -f my-app-container
-
       - name: Store SQLite database as artifact
         uses: actions/upload-artifact@v4
         with:
