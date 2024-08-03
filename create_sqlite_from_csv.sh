@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 
-declare filename=gupy_from_csv.db
-declare sqlfile=sqlite.sql
+ts=$(date +%Y%m%d-%H%M%S)
+filename=$ts-gupy_from_csv.db
+sqlfile=$ts-sqlite-init.sql
+
 sqlite3 $filename < $sqlfile
