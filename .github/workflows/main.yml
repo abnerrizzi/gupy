@@ -41,21 +41,21 @@ jobs:
         run: |
           mkdir -p html
           cat <<<EOF > html/index.html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQLite Viewer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.js"></script>
-</head>
-<body>
-    <h1>SQLite Database Viewer</h1>
-    <input type="file" id="file-input" />
-    <div id="output"></div>
-</body>
-</html>
-EOF
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>SQLite Viewer</title>
+              <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.js"></script>
+          </head>
+          <body>
+              <h1>SQLite Database Viewer</h1>
+              <input type="file" id="file-input" />
+              <div id="output"></div>
+          </body>
+          </html>
+          EOF
 
       - name: Deploy to GitHub Pages
         uses: actions/configure-pages@v3
