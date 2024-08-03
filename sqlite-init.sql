@@ -12,4 +12,4 @@ SELECT
         (SELECT COUNT(*) FROM companies)
     ) AS result;
 
-SELECT 'filenmame: ${ts}-gupy_from_csv.db' as out_file;
+SELECT '${ts}-gupy_from_csv.db' as out_file;
