@@ -5,18 +5,18 @@ if [ "$#" -ne 2 ]; then
   exit 1
 fi
 
-ts=$1
-shift
-folder=$1
-shift
-
-
-filename=$ts-gupy_from_csv.db
+ts="$1"
+folder="$2"
+folder="${folder%/}/"
+filename="${folder}${ts}-gupy_from_csv.db"
 temp_sqlfile="${ts}-sqlite-init.sql"
 
-sed "s#\${ts}#${folder}/${ts}#g" sqlite-init.sql > $temp_sqlfile
+sed "s#\${ts}#${folder}${ts}#g" sqlite-init.sql > "$temp_sqlfile"
 
+if ! sqlite3 "$filename" < "$temp_sqlfile"; then
+  echo "Error: Failed to execute SQL commands on $filename"
+  rm "$temp_sqlfile"
+  exit 1
+fi
 
-sqlite3 $filename < $temp_sqlfile
-
-rm $temp_sqlfile
+rm "$temp_sqlfile"
