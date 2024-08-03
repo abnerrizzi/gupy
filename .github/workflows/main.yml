@@ -49,7 +49,7 @@ jobs:
               <title>SQLite Viewer</title>
               <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.js"></script>
           </head>
-          <body>
+            <body>
               <h1>SQLite Database Viewer</h1>
               <input type="file" id="file-input" />
               <div id="output"></div>
