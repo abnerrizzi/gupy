@@ -6,10 +6,6 @@ on:
       - main
       - dev
       - feature/*
-    paths:
-      - '**Dockerfile'  # Check for changes in Dockerfile
-      - '**.sh'           # Check for changes in shell scripts
-      - '**.py'           # Check for changes in Python files
   workflow_dispatch:
 
 jobs:
