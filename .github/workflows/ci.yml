@@ -32,6 +32,10 @@ jobs:
 
       - name: Build Docker image
         run: |
+          pwd
+          ls -al
+          exit
+
           docker build -t ghcr.io/${{ github.repository }}/my-app:latest .
 
       - name: Push Docker image to GHCR
@@ -52,10 +56,6 @@ jobs:
       - name: Clean up old Docker containers
         run: |
           docker rm -f my-app-container || true
-          pwd
-          ls -al
-          exit
-
 
       - name: Run Docker container and store sqlite
         id: run_container
