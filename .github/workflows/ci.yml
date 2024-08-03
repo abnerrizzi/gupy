@@ -49,6 +49,10 @@ jobs:
         run: |
           docker pull ghcr.io/${{ github.repository }}/my-app:latest
 
+      - name: Clean up old Docker containers
+        run: |
+          docker rm -f my-app-container || true
+
       - name: Run Docker container
         run: |
           docker run --name my-app-container \
