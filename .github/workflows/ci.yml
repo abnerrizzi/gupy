@@ -9,34 +9,34 @@ on:
   workflow_dispatch:
 
 jobs:
-  # build-and-push:
-  #   runs-on: ubuntu-latest
+  build-and-push:
+    runs-on: ubuntu-latest
 
-  #   permissions:
-  #     contents: read
-  #     packages: write
+    permissions:
+      contents: read
+      packages: write
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-  #     - name: Log in to GitHub Container Registry
-  #       uses: docker/login-action@v2
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - name: Build Docker image
-  #       run: |
-  #         docker build -t ghcr.io/${{ github.repository }}/my-app:latest .
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/my-app:latest .
 
-  #     - name: Push Docker image to GHCR
-  #       run: |
-  #         docker push ghcr.io/${{ github.repository }}/my-app:latest
+      - name: Push Docker image to GHCR
+        run: |
+          docker push ghcr.io/${{ github.repository }}/my-app:latest
 
   run-and-store:
     # needs: build-and-push
@@ -45,24 +45,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
       - name: Pull Docker image from GHCR
         run: |
           docker pull ghcr.io/${{ github.repository }}/my-app:latest
 
       - name: Run Docker container
         run: |
-          docker run --name my-app-container -v ${{ github.workspace }}/app:/app ghcr.io/${{ github.repository }}/my-app:latest /bin/sh -c "python3 app/main.py ${{ github.event.client_payload.timestamp }} /app/data"
+          docker pull ghcr.io/${{ github.repository }}/my-app:latest
 
-      # - name: Run Docker container
-      #   run: |
-      #     docker run --name my-app-container -v ${{ github.workspace }}/app:/app ghcr.io/${{ github.repository }}/my-app:latest /bin/sh -c "python3 app/main.py ${{ github.event.client_payload.timestamp }} /app/data"
+      - name: Run Docker container
+        run: |
+          docker run --name my-app-container \
+          ghcr.io/${{ github.repository }}/my-app:latest \
+          run_scrap.sh"
 
       - name: Copy SQLite database from Docker container
         run: |
-          docker cp my-app-container:/app/data/${{ github.event.client_payload.timestamp }}-gupy_from_csv.db ./gupy_from_csv.db
+          docker cp my-app-container:/app/out/${{ github.event.client_payload.timestamp }}-gupy_from_csv.db ./gupy_from_csv.db
 
       - name: Stop and remove Docker container
         run: |
