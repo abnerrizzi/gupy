@@ -54,7 +54,11 @@ jobs:
 
       - name: Run Docker container
         run: |
-          docker run --name my-app-container ghcr.io/${{ github.repository }}/my-app:latest /bin/sh -c "python3 /app/main.py ${{ github.event.client_payload.timestamp }} /app/data"
+          docker run --name my-app-container -v ${{ github.workspace }}/app:/app ghcr.io/${{ github.repository }}/my-app:latest /bin/sh -c "python3 app/main.py ${{ github.event.client_payload.timestamp }} /app/data"
+
+      # - name: Run Docker container
+      #   run: |
+      #     docker run --name my-app-container -v ${{ github.workspace }}/app:/app ghcr.io/${{ github.repository }}/my-app:latest /bin/sh -c "python3 app/main.py ${{ github.event.client_payload.timestamp }} /app/data"
 
       - name: Copy SQLite database from Docker container
         run: |

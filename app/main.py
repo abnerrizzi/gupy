@@ -18,7 +18,7 @@ ts = (sys.argv[1])
 folder = (sys.argv[2])
 
 # CSV file paths
-company_limit = 3000
+company_limit = 2
 threads = 16
 companies_csv_path = f'{folder}/{ts}-companies.csv'
 jobs_csv_path = f'{folder}/{ts}-jobs.csv'
