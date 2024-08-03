@@ -58,6 +58,7 @@ jobs:
         id: run_container
         run: |
           docker run --name my-app-container \
+          -v ./app/out/:/app/out/ \
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh | tee result.log
           tree
