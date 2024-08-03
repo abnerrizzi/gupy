@@ -52,6 +52,9 @@ jobs:
       - name: Clean up old Docker containers
         run: |
           docker rm -f my-app-container || true
+          pwd
+          ls -al
+          
 
       - name: Run Docker container and store sqlite
         id: run_container
