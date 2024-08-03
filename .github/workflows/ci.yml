@@ -67,7 +67,7 @@ jobs:
           run_scrap.sh | tee result.log
           cat result.log
           last_line=$(tail -n 1 result.log)
-          docker cp my-app-container:/app/${lastline} ./gupy_from_csv.db
+          docker cp my-app-container:/app/${lastline} /app/out/gupy_from_csv.db
 
       - name: Stop and remove Docker container
         run: |
@@ -77,4 +77,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gupy_from_csv
-          path: ./out/
+          path: /app/out/gupy_from_csv.db
