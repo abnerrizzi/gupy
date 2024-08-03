@@ -32,10 +32,6 @@ jobs:
 
       - name: Build Docker image
         run: |
-          pwd
-          ls -al
-          exit
-
           docker build -t ghcr.io/${{ github.repository }}/my-app:latest .
 
       - name: Push Docker image to GHCR
@@ -56,6 +52,7 @@ jobs:
       - name: Clean up old Docker containers
         run: |
           docker rm -f my-app-container || true
+          tree
 
       - name: Run Docker container and store sqlite
         id: run_container
@@ -63,6 +60,7 @@ jobs:
           docker run --name my-app-container \
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh | tee result.log
+          tree
           cat result.log
           last_line=$(tail -n 1 result.log)
           docker cp my-app-container:/app/${lastline} /app/out/gupy_from_csv.db
