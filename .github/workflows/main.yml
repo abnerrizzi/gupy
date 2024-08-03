@@ -40,7 +40,7 @@ jobs:
       - name: Generate HTML page
         run: |
           mkdir -p html
-          cat <<EOF > html/index.html
+          cat <<<EOF > html/index.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
