@@ -60,19 +60,20 @@ jobs:
           -v ./out/:/app/out/ \
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh | tee result.log
+          echo outfile=$(tail -1 result.log) >> $GITHUB_ENV
 
       - name: Store SQLite database as artifact
         uses: actions/upload-artifact@v4
         with:
           name: gupy_from_csv.sqlite
-          path: ${{ github.workspace }}/out/*.db
+          path: ${{ github.workspace }}/out/${{ env.outfile }}
 
 
 
       - name: Set up Pages directory
         run: |
           mkdir -p ./docs
-          cp /app/out/gupy_from_csv.db ./docs/
+          cp /app/out/${{ env.outfile }} ./docs/
           cp sqlpage.html ./docs/index.html
 
       - name: Push to GitHub Pages branch
