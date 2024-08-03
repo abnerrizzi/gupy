@@ -8,6 +8,6 @@ RUN pip install --no-cache-dir -r app/requirements.txt
 
 # COPY app /app/app
 COPY *.sh *.sql .
-RUN tree
+# RUN tree
 
-# ENTRYPOINT ["/app/run_scrap.sh"]
+ENTRYPOINT ["/app/run_scrap.sh"]
