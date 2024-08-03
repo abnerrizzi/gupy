@@ -64,5 +64,19 @@ jobs:
       - name: Store SQLite database as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gupy_from_csv
+          name: gupy_from_csv.sqlite
           path: ${{ github.workspace }}/out/*.db
+
+
+
+      - name: Set up Pages directory
+        run: |
+          mkdir -p ./docs
+          cp /app/out/gupy_from_csv.db ./docs/
+          cp sqlpage.html ./docs/index.html
+
+      - name: Push to GitHub Pages branch
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
