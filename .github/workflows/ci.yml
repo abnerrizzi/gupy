@@ -39,7 +39,7 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/my-app:latest
 
   run-and-store:
-    # needs: build-and-push
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
