@@ -30,11 +30,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check if Docker-related files have changed
+        id: check_files
+        run: |
+          echo "Checking for changes in Docker-related files..."
+          git fetch origin
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD)
+          echo "changed_files=${CHANGED_FILES}" >> $GITHUB_ENV
+          if echo "${CHANGED_FILES}" | grep -E 'Dockerfile|src/|build/'; then
+            echo "Docker-related files have changed."
+            echo "build_required=true" >> $GITHUB_ENV
+          else
+            echo "No changes in Docker-related files."
+            echo "build_required=false" >> $GITHUB_ENV
+          fi
+
       - name: Build Docker image
+        if: env.build_required == 'true'
         run: |
           docker build -t ghcr.io/${{ github.repository }}/my-app:latest .
 
       - name: Push Docker image to GHCR
+        if: env.build_required == 'true'
         run: |
           docker push ghcr.io/${{ github.repository }}/my-app:latest
 
