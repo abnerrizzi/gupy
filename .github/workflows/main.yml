@@ -2,6 +2,7 @@ name: Data Scraping Pipeline
 
 on:
   push:
+    - never-pushe
   workflow_dispatch:
 
 jobs:
