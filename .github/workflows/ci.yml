@@ -68,14 +68,12 @@ jobs:
           name: gupy_from_csv.sqlite
           path: ${{ github.workspace }}/${{ env.outfile }}
 
-
-
       - name: Set up Pages directory
         run: |
           pwd
           tree
           mkdir -p ./docs
-          cp /app/${{ env.outfile }} ./docs/
+          cp ${{ github.workspace }}/${{ env.outfile }} ./docs/
           cp sqlpage.html ./docs/index.html
 
       - name: Push to GitHub Pages branch
