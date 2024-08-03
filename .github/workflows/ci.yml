@@ -51,10 +51,6 @@ jobs:
 
       - name: Run Docker container
         run: |
-          docker pull ghcr.io/${{ github.repository }}/my-app:latest
-
-      - name: Run Docker container
-        run: |
           docker run --name my-app-container \
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh"
