@@ -61,6 +61,7 @@ jobs:
           -v ./out/:/app/out/ \
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh | tee result.log
+          find /app
       - name: Store SQLite database as artifact
         uses: actions/upload-artifact@v4
         with:
