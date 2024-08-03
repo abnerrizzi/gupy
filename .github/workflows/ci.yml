@@ -66,8 +66,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gupy_from_csv.sqlite
-          path: ${{ github.workspace }}/out/${{ env.outfile }}
-
+          path: ${{ github.workspace }}/out/*.db
 
 
       - name: Set up Pages directory
