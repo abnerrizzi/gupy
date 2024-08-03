@@ -11,3 +11,5 @@ SELECT
         (SELECT COUNT(*) FROM jobs), 
         (SELECT COUNT(*) FROM companies)
     ) AS result;
+
+SELECT 'filenmame: ${ts}-gupy_from_csv.db' as out_file;
