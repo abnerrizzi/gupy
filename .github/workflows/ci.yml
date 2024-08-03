@@ -52,7 +52,6 @@ jobs:
       - name: Clean up old Docker containers
         run: |
           docker rm -f my-app-container || true
-          tree
 
       - name: Run Docker container and store sqlite
         id: run_container
@@ -61,6 +60,7 @@ jobs:
           -v ./out/:/app/out/ \
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh | tee result.log
+          tree
 
       - name: Store SQLite database as artifact
         uses: actions/upload-artifact@v4
