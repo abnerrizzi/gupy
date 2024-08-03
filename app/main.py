@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import requests
 import csv
 import json
@@ -5,13 +6,22 @@ import tqdm
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import datetime
+import os
+import sys
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Error: two argument is required.")
+        sys.exit(1)
+
+ts = (sys.argv[1])
+folder = (sys.argv[2])
 
 # CSV file paths
-folder = '.'
-threads=16
-ts='{:%Y%m%d-%H%M%S}'.format(datetime.datetime.now())
-companies_csv_path = f'{folder}/companies-{ts}.csv'
-jobs_csv_path = f'{folder}/jobs-{ts}.csv'
+company_limit = 3
+threads = 16
+companies_csv_path = f'{folder}/{ts}-companies.csv'
+jobs_csv_path = f'{folder}/{ts}-jobs.csv'
 
 # Function to fetch and process job data
 def fetch_and_process_job_data(company):
@@ -51,7 +61,14 @@ def fetch_and_process_job_data(company):
     
     return company_data, job_data_list
 
-# Initialize the CSV writers
+
+
+
+
+
+
+# Check Folder & Initialize the CSV writers
+os.makedirs(os.path.dirname(companies_csv_path), exist_ok=True)
 with open(companies_csv_path, mode='w', newline='', encoding='utf-8') as companies_file, \
      open(jobs_csv_path, mode='w', newline='', encoding='utf-8') as jobs_file:
 
@@ -65,7 +82,7 @@ with open(companies_csv_path, mode='w', newline='', encoding='utf-8') as compani
     jobs_writer.writerow(['id', 'company_id', 'title', 'type', 'department', 'workplace_city', 'workplace_state', 'workplace_type'])
 
     # URL for the initial company list
-    url = f'https://portal.api.gupy.io/api/company?limit=33'
+    url = f'https://portal.api.gupy.io/api/company?limit={company_limit}'
     response = requests.get(url)
     data = response.json()
     
