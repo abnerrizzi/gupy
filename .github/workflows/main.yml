@@ -3,8 +3,7 @@ name: Data Scraping Pipeline
 on:
   push:
     branches:
-      - never-pushe
-  workflow_dispatch:
+      - never-run
 
 jobs:
   build:
