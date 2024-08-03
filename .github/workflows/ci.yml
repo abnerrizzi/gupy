@@ -53,12 +53,6 @@ jobs:
         run: |
           docker rm -f my-app-container || true
 
-      - name: Run Docker container
-        run: |
-          docker run --name my-app-container \
-          ghcr.io/${{ github.repository }}/my-app:latest \
-          run_scrap.sh
-
       - name: Run Docker container and store sqlite
         id: run_container
         run: |
