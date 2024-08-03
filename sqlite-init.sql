@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS companies;
 DROP TABLE IF EXISTS jobs;
 -- DROP VIEW IF EXISTS v1;
 
+/*
 CREATE TABLE "jobs"(
     "id" INT,
     "company_id" INT,
@@ -20,13 +21,9 @@ CREATE TABLE "companies"(
     "career_page_url" TEXT,
     "friendly_badge" TEXT
 );
-
+*/
 
 .separator ";"
 .mode csv
 .import companies.csv companies
 .import jobs.csv jobs
-
-
-.schema companies
-.schema jobs
