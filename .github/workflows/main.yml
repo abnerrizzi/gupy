@@ -67,13 +67,11 @@ jobs:
             
             let html = '<h2>Companies</h2><table border="1"><tr><th>ID</th><th>Name</th><th>Logo URL</th><th>Career Page URL</th><th>Friendly Badge</th></tr>';
             result[0].values.forEach(row => {
-                html += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
             });
             html += '</table>';
 
             html += '<h2>Jobs</h2><table border="1"><tr><th>ID</th><th>Company ID</th><th>Title</th><th>Type</th><th>Department</th><th>Workplace City</th><th>Workplace State</th><th>Workplace Type</th></tr>';
             jobsResult[0].values.forEach(row => {
-                html += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
             });
             html += '</table>';
 
