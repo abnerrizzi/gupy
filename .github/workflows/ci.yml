@@ -77,4 +77,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gupy_from_csv
-          path: gupy_from_csv.db
+          path: out/
