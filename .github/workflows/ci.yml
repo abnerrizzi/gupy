@@ -55,9 +55,15 @@ jobs:
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh
 
-      - name: Copy SQLite database from Docker container
+      - name: Run Docker container and store sqlite
+        id: run_container
         run: |
-          docker cp my-app-container:/app/out/${{ github.event.client_payload.timestamp }}-gupy_from_csv.db ./gupy_from_csv.db
+          docker run --name my-app-container \
+          ghcr.io/${{ github.repository }}/my-app:latest \
+          run_scrap.sh | tee result.log
+          cat result.log
+          last_line=$(tail -n 1 result.log)
+          docker cp my-app-container:/app/${lastline} ./gupy_from_csv.db
 
       - name: Stop and remove Docker container
         run: |
