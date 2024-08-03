@@ -72,6 +72,8 @@ jobs:
 
       - name: Set up Pages directory
         run: |
+          pwd
+          tree
           mkdir -p ./docs
           cp /app/${{ env.outfile }} ./docs/
           cp sqlpage.html ./docs/index.html
