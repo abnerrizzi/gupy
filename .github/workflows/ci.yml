@@ -1,0 +1,64 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/my-app:latest .
+
+      - name: Push Docker image to GHCR
+        run: |
+          docker push ghcr.io/${{ github.repository }}/my-app:latest
+
+  run-and-store:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Pull Docker image from GHCR
+        run: |
+          docker pull ghcr.io/${{ github.repository }}/my-app:latest
+
+      - name: Run Docker container
+        run: |
+          docker run --name my-app-container ghcr.io/${{ github.repository }}/my-app:latest /bin/sh -c "python3 /app/main.py ${{ github.event.client_payload.timestamp }} /app/data"
+
+      - name: Copy SQLite database from Docker container
+        run: |
+          docker cp my-app-container:/app/data/${{ github.event.client_payload.timestamp }}-gupy_from_csv.db ./gupy_from_csv.db
+
+      - name: Stop and remove Docker container
+        run: |
+          docker rm -f my-app-container
+
+      - name: Store SQLite database as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: gupy_from_csv
+          path: gupy_from_csv.db
