@@ -53,7 +53,7 @@ jobs:
         run: |
           docker run --name my-app-container \
           ghcr.io/${{ github.repository }}/my-app:latest \
-          run_scrap.sh"
+          run_scrap.sh
 
       - name: Copy SQLite database from Docker container
         run: |
