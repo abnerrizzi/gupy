@@ -61,13 +61,9 @@ jobs:
           -v ./out/:/app/out/ \
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh | tee result.log
-          echo ${{ github.workspace }}
-          echo $GITHUB_WORKSPACE
-          pwd
-          tree
-          find /app
+
       - name: Store SQLite database as artifact
         uses: actions/upload-artifact@v4
         with:
           name: gupy_from_csv
-          path: /app/out/gupy_from_csv.db
+          path: ${{ github.workspace }}/out/gupy_from_csv.db
