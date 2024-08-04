@@ -25,13 +25,13 @@ jobs:
           -v ./out/:/app/out/ \
           ghcr.io/${{ github.repository }}/my-app:latest \
           run_scrap.sh | tee result.log
-          echo outfile=$(tail -1 result.log) >> $GITHUB_ENV
+          mv $(tail -1 result.log) out/sqlite.db
 
       - name: Store SQLite database as artifact
         uses: actions/upload-artifact@v4
         with:
           name: gupy_from_csv.sqlite
-          path: ${{ github.workspace }}/${{ env.outfile }}
+          path: ${{ github.workspace }}/out/sqlite.db
 
       - name: Prepare HTML for GitHub Pages
         id: get-artifact-url
