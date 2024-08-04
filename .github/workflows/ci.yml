@@ -9,55 +9,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  # build-and-push:
-  #   runs-on: ubuntu-latest
-
-  #   permissions:
-  #     contents: read
-  #     packages: write
-
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v2
-
-  #     - name: Log in to GitHub Container Registry
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Build Docker image
-      #   run: |
-      #     docker build -t ghcr.io/${{ github.repository }}/my-app:latest .
-
-      # - name: Push Docker image to GHCR
-      #   run: |
-      #     docker push ghcr.io/${{ github.repository }}/my-app:latest
-
   run-and-store:
-    # needs: build-and-push
     runs-on: ubuntu-latest
     permissions:
-      # contents: read
       pages: write
       id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # - name: Pull Docker image from GHCR
-      #   run: |
-      #     docker pull ghcr.io/${{ github.repository }}/my-app:latest
-
-      # - name: Clean up old Docker containers
-      #   run: |
-      #     docker rm -f my-app-container || true
-
-      - name: Run Docker container and store sqlite
+      - name: Run Docker container and store SQLite
         id: run_container
         run: |
           docker run --name my-app-container \
@@ -74,11 +35,89 @@ jobs:
 
       - name: Set up Pages directory
         run: |
-          pwd
-          tree
           mkdir -p ./docs
-          cp ${{ github.workspace }}/${{ env.outfile }} ./docs/
-          cp sqlpage.html ./docs/index.html
+          echo '=== an sqlpage
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>SQLite Viewer</title>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.js"></script>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+              }
+              #data-table {
+                border-collapse: collapse;
+                width: 100%;
+              }
+              #data-table th, #data-table td {
+                border: 1px solid #ddd;
+                padding: 8px;
+              }
+              #data-table th {
+                background-color: #f2f2f2;
+                text-align: left;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>SQLite Database Viewer</h1>
+            <input type="file" id="dbfile" />
+            <button onclick="loadDatabase()">Load Database</button>
+            <table id="data-table"></table>
+
+            <script>
+              async function loadDatabase() {
+                const fileInput = document.getElementById("dbfile");
+                if (fileInput.files.length === 0) {
+                  alert("Please select a database file.");
+                  return;
+                }
+                
+                const file = fileInput.files[0];
+                const arrayBuffer = await file.arrayBuffer();
+                const SQL = await initSqlJs({ locateFile: filename => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/${filename}` });
+                const db = new SQL.Database(new Uint8Array(arrayBuffer));
+                
+                const res = db.exec("SELECT * FROM your_table_name"); // Change "your_table_name" to your actual table name
+                if (res.length > 0) {
+                  const columns = res[0].columns;
+                  const values = res[0].values;
+                  const table = document.getElementById("data-table");
+                  
+                  // Create table header
+                  const thead = document.createElement("thead");
+                  const tr = document.createElement("tr");
+                  columns.forEach(col => {
+                    const th = document.createElement("th");
+                    th.textContent = col;
+                    tr.appendChild(th);
+                  });
+                  thead.appendChild(tr);
+                  table.appendChild(thead);
+                  
+                  // Create table body
+                  const tbody = document.createElement("tbody");
+                  values.forEach(row => {
+                    const tr = document.createElement("tr");
+                    row.forEach(cell => {
+                      const td = document.createElement("td");
+                      td.textContent = cell;
+                      tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                  });
+                  table.appendChild(tbody);
+                } else {
+                  alert("No data found in the table.");
+                }
+              }
+            </script>
+          </body>
+          </html>
+          ' > ./docs/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -86,7 +125,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'html/'
+          path: './docs'
 
       - name: Deploy to GitHub Pages
         id: deployment
