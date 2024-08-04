@@ -33,13 +33,17 @@ jobs:
           name: gupy_from_csv.sqlite
           path: ${{ github.workspace }}/${{ env.outfile }}
 
+      - name: Get Artifact URL
+        id: get-artifact-url
+        run: |
+          echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" >> $GITHUB_ENV
+
       - name: Prepare HTML for GitHub Pages
         run: |
-          mkdir -p ./docs
           sed -e "s/YOUR_USERNAME/${{ github.repository_owner }}/g" \
-            -e "s/YOUR_REPO_NAME/${{ github.event.repository.name }}/g" \
-            -e "s/LATEST_ARTIFACT_ID/${{ needs.run-and-store.outputs.artifact-id }}/g" \
-            sqlpage.html > ./docs/index.html
+              -e "s/YOUR_REPO_NAME/${{ github.event.repository.name }}/g" \
+              -e "s/LATEST_ARTIFACT_ID/${{ needs.run-and-store.outputs.artifact-url }}/g" \
+              sqlpage.html > ./docs/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
