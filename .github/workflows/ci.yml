@@ -76,8 +76,14 @@ jobs:
           cp ${{ github.workspace }}/${{ env.outfile }} ./docs/
           cp sqlpage.html ./docs/index.html
 
-      - name: Push to GitHub Pages branch
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
+          path: 'html/'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
