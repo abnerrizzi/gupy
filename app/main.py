@@ -18,7 +18,7 @@ ts = (sys.argv[1])
 folder = (sys.argv[2])
 
 # CSV file paths
-company_limit = 2
+company_limit = 3000
 threads = 16
 companies_csv_path = f'{folder}/{ts}-companies.csv'
 jobs_csv_path = f'{folder}/{ts}-jobs.csv'
@@ -91,7 +91,7 @@ with open(companies_csv_path, mode='w', newline='', encoding='utf-8') as compani
     with ThreadPoolExecutor(max_workers=threads) as executor:
         future_to_company = {executor.submit(fetch_and_process_job_data, company): company for company in companies}
         
-        for future in tqdm.tqdm(as_completed(future_to_company), total=len(companies)):
+        for future in tqdm.tqdm(as_completed(future_to_company), total=len(companies), miniters=int(223265/100)):
             try:
                 company_data, job_data_list = future.result()
                 companies_writer.writerow(company_data)
