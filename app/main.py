@@ -91,7 +91,7 @@ with open(companies_csv_path, mode='w', newline='', encoding='utf-8') as compani
     with ThreadPoolExecutor(max_workers=threads) as executor:
         future_to_company = {executor.submit(fetch_and_process_job_data, company): company for company in companies}
         
-        for future in tqdm.tqdm(as_completed(future_to_company), total=len(companies), miniters=int(223265/100)):
+        for future in tqdm.tqdm(as_completed(future_to_company), total=len(companies), miniters=int(50)):
             try:
                 company_data, job_data_list = future.result()
                 companies_writer.writerow(company_data)
