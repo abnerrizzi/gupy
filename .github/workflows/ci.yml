@@ -45,6 +45,7 @@ jobs:
               -e "s/YOUR_REPO_NAME/${{ github.event.repository.name }}/g" \
               -e "s/LATEST_ARTIFACT_ID/${{ artifact-id }}/g" \
               sqlpage.html > ./docs/index.html
+          grep https ./docs/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
