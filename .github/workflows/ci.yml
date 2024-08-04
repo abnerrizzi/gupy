@@ -73,6 +73,16 @@ jobs:
           # Extract artifact ID
           echo $ARTIFACTS
           jq -r '.artifacts[].id || true
+
+          echo "$ARTIFACTS" | jq -c '.artifacts[]' | while IFS= read -r artifact; do
+            ARTIFACT_ID=$(echo "$artifact" | jq -r '.id')
+            ARTIFACT_NAME=$(echo "$artifact" | jq -r '.name')
+            echo "Artifact Name: $ARTIFACT_NAME"
+            echo "Artifact ID: $ARTIFACT_ID"
+            echo "Download URL: https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
+            echo ""
+          done
+
           ARTIFACT_ID=$(echo "$ARTIFACTS" | jq -r '.artifacts[0].id')
           
           # Print artifact details
