@@ -18,7 +18,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Docker container and store SQLite
+      - name: Run Docker and store SQLite
         id: run_container
         run: |
           docker run --name my-app-container \
@@ -33,25 +33,21 @@ jobs:
           name: gupy_from_csv.sqlite
           path: ${{ github.workspace }}/${{ env.outfile }}
 
-      - name: Get Artifact URL
+      - name: Prepare HTML for GitHub Pages
         id: get-artifact-url
         run: |
           echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
           echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" >> $GITHUB_ENV
-
-      - name: Prepare HTML for GitHub Pages
-        run: |
-          mkdir -p docs
           sed -e "s/YOUR_USERNAME/${{ github.repository_owner }}/g" \
               -e "s/YOUR_REPO_NAME/${{ github.event.repository.name }}/g" \
               -e "s/LATEST_ARTIFACT_ID/${artifact-id}/g" \
               sqlpage.html > ./docs/index.html
           grep https docs/index.html
 
-      - name: Setup Pages
+      - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: './docs'
