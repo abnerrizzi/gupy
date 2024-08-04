@@ -36,6 +36,7 @@ jobs:
       - name: Prepare HTML for GitHub Pages
         id: get-artifact-url
         run: |
+          mkdir -p docs
           echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
           echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" >> $GITHUB_ENV
           sed -e "s/YOUR_USERNAME/${{ github.repository_owner }}/g" \
