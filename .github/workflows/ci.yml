@@ -71,6 +71,8 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/actions/artifacts)
           
           # Extract artifact ID
+          echo $ARTIFACTS
+          jq -r '.artifacts[].id || true
           ARTIFACT_ID=$(echo "$ARTIFACTS" | jq -r '.artifacts[0].id')
           
           # Print artifact details
