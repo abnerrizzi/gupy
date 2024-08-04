@@ -8,7 +8,39 @@ on:
       - feature/*
   workflow_dispatch:
 
+env:
+  app_name: 'my-app'
+
 jobs:
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/${{ env.app_name }}:latest .
+
+      - name: Push Docker image to GHCR
+        run: |
+          docker push ghcr.io/${{ github.repository }}/${{ env.app_name }}:latest
+
+
   run-and-store:
     runs-on: ubuntu-latest
     permissions:
@@ -21,9 +53,9 @@ jobs:
       - name: Run Docker and store SQLite
         id: run_container
         run: |
-          docker run --name my-app-container \
+          docker run --name ${{ env.app_name }}-container \
           -v ./out/:/app/out/ \
-          ghcr.io/${{ github.repository }}/my-app:latest \
+          ghcr.io/${{ github.repository }}/${{ env.app_name }}:latest \
           run_scrap.sh | tee result.log
           echo outfile=$(tail -1 result.log) >> $GITHUB_ENV
 
