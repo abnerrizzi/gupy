@@ -36,7 +36,10 @@ jobs:
       - name: Prepare HTML for GitHub Pages
         run: |
           mkdir -p ./docs
-          sed "s/YOUR_USERNAME/${{ github.actor }}/g; s/YOUR_REPO_NAME/${{ github.repository }}/g; s/LATEST_ARTIFACT_ID/${{ needs.run-and-store.outputs.artifact-id }}/g" sqlpage.html > ./docs/index.html
+          sed -e "s/YOUR_USERNAME/${{ github.repository_owner }}/g" \
+            -e "s/YOUR_REPO_NAME/${{ github.event.repository.name }}/g" \
+            -e "s/LATEST_ARTIFACT_ID/${{ needs.run-and-store.outputs.artifact-id }}/g" \
+            sqlpage.html > ./docs/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
