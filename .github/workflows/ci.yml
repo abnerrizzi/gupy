@@ -84,9 +84,9 @@ jobs:
           done
 
           ARTIFACT_ID=$(echo "$ARTIFACTS" | jq -r '.artifacts[0].id')
-          
+
           # Print artifact details
           echo "Artifact ID: $ARTIFACT_ID"
-          
+
           # Print download URL
           echo "Download URL: https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
