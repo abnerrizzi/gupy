@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 ts=$(date +%Y%m%d-%H%M%S)
 folder=${1:-out/}

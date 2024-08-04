@@ -1,2 +1,4 @@
 *.csv
 *.db
+.vscode
+result.log
