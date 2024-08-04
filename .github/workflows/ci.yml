@@ -72,7 +72,7 @@ jobs:
           
           # Extract artifact ID
           echo $ARTIFACTS
-          jq -r '.artifacts[].id || true
+          jq -r '.artifacts[].id' || true
 
           echo "$ARTIFACTS" | jq -c '.artifacts[]' | while IFS= read -r artifact; do
             ARTIFACT_ID=$(echo "$artifact" | jq -r '.id')
