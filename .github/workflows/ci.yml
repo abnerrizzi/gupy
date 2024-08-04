@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
         run: |
@@ -59,12 +59,27 @@ jobs:
           ghcr.io/${{ github.repository }}/${{ env.app_name }}:latest \
           run_scrap.sh | tee result.log
           echo outfile=$(tail -1 result.log) >> $GITHUB_ENV
+          echo "-------------"
+          echo ""
+          echo ${{ steps.artifact-upload-step.outputs.artifact-url }}  || true
+
 
       - name: Store SQLite database as artifact
+        id: artifact-upload-step
         uses: actions/upload-artifact@v4
         with:
           name: gupy_from_csv.sqlite
           path: ${{ github.workspace }}/${{ env.outfile }}
+          compression-level: 0
+
+
+      - name: run
+        run: |
+          echo ${{ steps }} 
+          echo ${{ steps.artifact-upload-step }} 
+          echo ${{ steps.artifact-upload-step.outputs }} 
+          echo ${{ steps.artifact-upload-step.outputs.artifact-url }} 
+
 
       # - name: Prepare HTML for GitHub Pages
       #   id: get-artifact-url
