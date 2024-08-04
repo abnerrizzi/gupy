@@ -36,6 +36,7 @@ jobs:
       - name: Get Artifact URL
         id: get-artifact-url
         run: |
+          echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
           echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" >> $GITHUB_ENV
 
       - name: Prepare HTML for GitHub Pages
