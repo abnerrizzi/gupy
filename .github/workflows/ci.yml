@@ -41,17 +41,21 @@ jobs:
   run-and-store:
     # needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      # contents: read
+      # pages: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Pull Docker image from GHCR
-        run: |
-          docker pull ghcr.io/${{ github.repository }}/my-app:latest
+      # - name: Pull Docker image from GHCR
+      #   run: |
+      #     docker pull ghcr.io/${{ github.repository }}/my-app:latest
 
-      - name: Clean up old Docker containers
-        run: |
-          docker rm -f my-app-container || true
+      # - name: Clean up old Docker containers
+      #   run: |
+      #     docker rm -f my-app-container || true
 
       - name: Run Docker container and store sqlite
         id: run_container
