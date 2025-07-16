@@ -17,7 +17,9 @@ CREATE VIEW job_details AS
             instr(substr(c.career_page_url, 9), '/') + 8) || 'jobs/' || j.id AS job_url,
         j.department AS job_department,
         j.type AS job_type,
-        j.workplace_type AS workplace_type
+        j.workplace_type AS workplace_type,
+        j.workplace_city,
+        j.workplace_state
     FROM
         jobs j
     JOIN
