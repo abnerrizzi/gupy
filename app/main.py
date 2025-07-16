@@ -62,11 +62,6 @@ def fetch_and_process_job_data(company):
     return company_data, job_data_list
 
 
-
-
-
-
-
 # Check Folder & Initialize the CSV writers
 os.makedirs(os.path.dirname(companies_csv_path), exist_ok=True)
 with open(companies_csv_path, mode='w', newline='', encoding='utf-8') as companies_file, \
