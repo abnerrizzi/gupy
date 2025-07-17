@@ -25,7 +25,8 @@ CREATE VIEW job_details AS
     JOIN
         companies c ON j.company_id = c.id
     GROUP BY
-        j.id, c.id;
+        j.id, c.id
+    ;
 
 -- printing output
 SELECT 
