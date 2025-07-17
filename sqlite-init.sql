@@ -15,6 +15,9 @@ CREATE VIEW job_details AS
         c.name AS company_name,
         substr(c.career_page_url, 1, 
             instr(substr(c.career_page_url, 9), '/') + 8) || 'jobs/' || j.id AS job_url,
+        substr(c.career_page_url, 1, instr(substr(c.career_page_url, 9), '/') + 8) ||
+            '_next/data/VX0nrGhF9_x9sbT1sYX09/pt/jobs/' || j.id || '.json'
+            	AS job_url_detail,
         j.department AS job_department,
         j.type AS job_type,
         j.workplace_type AS workplace_type,
