@@ -13,14 +13,34 @@ if [ ! -x "app/main.py" ]; then
   exit 1
 fi
 
-# Run the Python script
+echo "Starting job scraping..."
+# Run the Python script (creates SQLite with data)
 python3 app/main.py "$ts" "$folder"
 
-# Check if `create_sqlite_from_csv.sh` exists and is executable
-if [ ! -x "./create_sqlite_from_csv.sh" ]; then
-  echo "Error: create_sqlite_from_csv.sh not found or not executable"
+# Check if the database was created successfully
+db_file="${folder}${ts}-gupy_direct.db"
+if [ ! -f "$db_file" ]; then
+  echo "Error: Database file was not created successfully"
   exit 1
 fi
 
-# Run the shell script to create SQLite database
-./create_sqlite_from_csv.sh "$ts" "$folder"
+# Check if sqlite-init-direct.sql exists
+if [ ! -f "sqlite-init-direct.sql" ]; then
+  echo "Error: sqlite-init-direct.sql not found"
+  exit 1
+fi
+
+echo "Applying database schema and creating views..."
+# Apply the SQL initialization script (Liquibase-like approach)
+temp_sqlfile="${ts}-sqlite-init-direct.sql"
+sed "s#\${ts}#${ts}#g" sqlite-init-direct.sql > "$temp_sqlfile"
+
+if ! sqlite3 "$db_file" < "$temp_sqlfile"; then
+  echo "Error: Failed to execute SQL commands on $db_file"
+  rm -f "$temp_sqlfile"
+  exit 1
+fi
+
+rm -f "$temp_sqlfile"
+echo "Job scraping completed successfully!"
+echo "Database created: $db_file"
