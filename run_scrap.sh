@@ -24,16 +24,16 @@ if [ ! -f "$db_file" ]; then
   exit 1
 fi
 
-# Check if sqlite-init-direct.sql exists
-if [ ! -f "sqlite-init-direct.sql" ]; then
-  echo "Error: sqlite-init-direct.sql not found"
+# Check if sqlite-init.sql exists
+if [ ! -f "sqlite-init.sql" ]; then
+  echo "Error: sqlite-init.sql not found"
   exit 1
 fi
 
 echo "Applying database schema and creating views..."
 # Apply the SQL initialization script (Liquibase-like approach)
-temp_sqlfile="${ts}-sqlite-init-direct.sql"
-sed "s#\${ts}#${ts}#g" sqlite-init-direct.sql > "$temp_sqlfile"
+temp_sqlfile="${ts}-sqlite-init.sql"
+sed "s#\${ts}#${ts}#g" sqlite-init.sql > "$temp_sqlfile"
 
 if ! sqlite3 "$db_file" < "$temp_sqlfile"; then
   echo "Error: Failed to execute SQL commands on $db_file"
