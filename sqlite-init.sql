@@ -34,6 +34,7 @@ CREATE VIEW job_details AS
     ;
 
 -- Data quality checks
+SELECT '----------------------------------------------' as line_breaker;
 SELECT 'Data Quality Report' as report_section;
 SELECT 
     printf('Companies with missing career page URLs: %d', 
@@ -54,7 +55,8 @@ SELECT
     ) AS result;
 
 -- Top departments by job count
-SELECT 'Top Departments' as report_section;
+SELECT '----------------------------------------------' as line_breaker;
+SELECT 'Top 3 Departments' as report_section;
 SELECT 
     department,
     COUNT(*) as job_count
@@ -62,9 +64,10 @@ FROM jobs
 WHERE department != 'N/A'
 GROUP BY department 
 ORDER BY job_count DESC 
-LIMIT 10;
+LIMIT 3;
 
 -- Jobs by workplace type
+SELECT '----------------------------------------------' as line_breaker;
 SELECT 'Workplace Types' as report_section;
 SELECT 
     workplace_type,
