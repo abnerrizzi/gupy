@@ -19,7 +19,7 @@ ts = sys.argv[1]
 folder = sys.argv[2]
 
 # Database configuration
-company_limit = 3000
+company_limit = 1
 threads = 16
 db_path = f'{folder}/{ts}-gupy_direct.db'
 
