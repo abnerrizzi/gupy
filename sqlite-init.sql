@@ -1,14 +1,40 @@
--- SQLite initialization script for direct database approach
--- This script applies post-processing steps after data has been inserted
-
--- Drop existing view if it exists
-DROP VIEW IF EXISTS job_details;
-
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_jobs_company_id ON jobs(company_id);
-CREATE INDEX IF NOT EXISTS idx_companies_id ON companies(id);
+CREATE INDEX IF NOT EXISTS idx_jobs_company_id ON jobs_${ts}(company_id);
+CREATE INDEX IF NOT EXISTS idx_companies_id ON companies_${ts}(id);
+
+
+-- Create or replace the "latest" table
+DROP TABLE IF EXISTS jobs_latest;
+CREATE TABLE jobs_latest AS
+SELECT * FROM jobs_${ts};
+
+CREATE TABLE IF NOT EXISTS jobs_all AS SELECT * FROM jobs_${ts};
+-- Create a view that merges latest + historical snapshot, removing duplicates
+INSERT INTO jobs_all
+SELECT * FROM jobs_${ts}
+WHERE id NOT IN (SELECT id FROM jobs_all);
+
+
+
+-- Create or replace the "latest" table
+DROP TABLE IF EXISTS companies_latest;
+CREATE TABLE companies_latest AS
+SELECT * FROM companies_${ts};
+
+CREATE TABLE IF NOT EXISTS companies_all AS SELECT * FROM companies_${ts};
+-- Create a view that merges latest + historical snapshot, removing duplicates
+INSERT INTO companies_all
+SELECT * FROM companies_${ts}
+WHERE id NOT IN (SELECT id FROM companies_all);
+
+
+
+
+
+
 
 -- Create the main view
+DROP VIEW IF EXISTS job_details;
 CREATE VIEW job_details AS
     SELECT
         j.id AS job_id,
@@ -28,43 +54,48 @@ CREATE VIEW job_details AS
     FROM
         jobs j
     JOIN
-        companies c ON j.company_id = c.id
+        companies_${ts} c ON j.company_id = c.id
     GROUP BY
         j.id, c.id
     ;
 
 -- Data quality checks
 SELECT '----------------------------------------------' as line_breaker;
-SELECT 'Data Quality Report' as report_section;
 SELECT 
     printf('Companies with missing career page URLs: %d', 
-        (SELECT COUNT(*) FROM companies WHERE career_page_url IS NULL OR career_page_url = '')
+        (SELECT COUNT(*) FROM companies_${ts} WHERE career_page_url IS NULL OR career_page_url = '')
     ) AS quality_check;
 
 SELECT 
     printf('Jobs with missing company references: %d', 
-        (SELECT COUNT(*) FROM jobs j LEFT JOIN companies c ON j.company_id = c.id WHERE c.id IS NULL)
+        (SELECT COUNT(*) FROM jobs_${ts} j LEFT JOIN companies_${ts} c ON j.company_id = c.id WHERE c.id IS NULL)
     ) AS quality_check;
 
 -- Summary statistics
-SELECT 'Summary Statistics' as report_section;
 SELECT 
     printf('%d jobs scraped from %d companies', 
-        (SELECT COUNT(*) FROM jobs), 
-        (SELECT COUNT(*) FROM companies)
+        (SELECT COUNT(*) FROM jobs_${ts}), 
+        (SELECT COUNT(*) FROM companies_${ts})
     ) AS result;
 
+-- Total companies & jobs
+SELECT '----------------------------------------------' as line_breaker;
+SELECT
+    printf('Total: %d companies and %d jobs in the database', 
+        (SELECT COUNT(*) FROM companies_all), 
+        (SELECT COUNT(*) FROM jobs_all)
+    ) AS total_count;
 -- Top departments by job count
 SELECT '----------------------------------------------' as line_breaker;
-SELECT 'Top 3 Departments' as report_section;
+SELECT 'Top 5 Departments' as report_section;
 SELECT 
     department,
     COUNT(*) as job_count
-FROM jobs 
+FROM jobs_${ts} 
 WHERE department != 'N/A'
 GROUP BY department 
 ORDER BY job_count DESC 
-LIMIT 3;
+LIMIT 5;
 
 -- Jobs by workplace type
 SELECT '----------------------------------------------' as line_breaker;
@@ -72,9 +103,6 @@ SELECT 'Workplace Types' as report_section;
 SELECT 
     workplace_type,
     COUNT(*) as job_count
-FROM jobs 
+FROM jobs_${ts} 
 GROUP BY workplace_type 
 ORDER BY job_count DESC;
-
--- Output file confirmation
-SELECT '${ts}-gupy_direct.db' as output_file;
