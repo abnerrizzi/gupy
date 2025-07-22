@@ -43,4 +43,4 @@ fi
 
 rm -f "$temp_sqlfile"
 echo "Job scraping completed successfully!"
-echo $db_file"
+echo $db_file
