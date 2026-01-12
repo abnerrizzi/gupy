@@ -20,3 +20,4 @@ This script runs the Python scraper and creates the SQLite database.
 
 ```bash
 ./run_scrap.sh [output folder]
+```
