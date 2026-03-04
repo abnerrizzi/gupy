@@ -20,7 +20,7 @@ folder = sys.argv[2]
 db_file = sys.argv[3]
 
 # Database configuration
-company_limit = 2560
+company_limit = 3
 threads = 16
 db_path = os.path.join(folder, db_file)
 
