@@ -18,7 +18,7 @@ if __name__ == "__main__":
     folder = os.environ.get('GUPY_OUTPUT_FOLDER', sys.argv[2])
 
     # Configuration via environment variables
-    company_limit = int(os.environ.get('GUPY_COMPANY_LIMIT', '3'))
+    company_limit = int(os.environ.get('GUPY_COMPANY_LIMIT', '30000'))
     threads = int(os.environ.get('GUPY_THREADS', '16'))
 
     # CSV file paths
