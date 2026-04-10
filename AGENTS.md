@@ -4,72 +4,78 @@ This file contains guidelines for agentic coding agents working in this reposito
 
 ## Project Overview
 
-This repository contains scripts for scraping job data from the Gupy API, creating CSV files, and populating an SQLite database. The main components are:
+This repository contains a job scraping system with three main components:
 
-- `app/main.py` - Python scraper that fetches job data from the Gupy API
+- `app/main.py` - Python scraper for Gupy API
+- `api/` - Flask REST API serving job data
+- `web/` - React web UI for searching/filtering jobs
 - `run_scrap.sh` - Shell script to run the full scraping pipeline
-- `create_sqlite_from_csv.sh` - Creates SQLite database from CSV files
-- `sqlite-init.sql` - SQL template for database initialization
+
+## Architecture
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Scraper    │────▶│   SQLite     │◀────│    API      │
+│  (Python)   │     │   Database  │     │  (Flask)    │
+└──────────────┘     └──────────────┘     └──────────────┘
+                                                  │
+                                                  ▼
+                                         ┌──────────────┐
+                                         │    Web      │
+                                         │  (React)    │
+                                         └──────────────┘
+```
 
 ## Build/Lint/Test Commands
 
-### Running the scraper
+### Running Locally
 
 ```bash
-# Run the full pipeline (uses defaults)
-./run_scrap.sh [output_folder]
+# Run full pipeline (scraper + SQLite)
+./run_scrap.sh out/
 
-# With environment variables
-GUPY_COMPANY_LIMIT=10 GUPY_THREADS=8 ./run_scrap.sh out/
-
-# Or run components separately:
+# Run only scraper
 python3 app/main.py "<timestamp>" "<folder>"
+
+# Create SQLite from CSV
 ./create_sqlite_from_csv.sh "<timestamp>" "<folder>"
 ```
 
-### Docker
+### Docker Compose (Recommended)
 
 ```bash
-# Build Docker image
-docker build -t gupy-scraper .
+# Build all services
+docker-compose build
 
-# Run with defaults
-docker run -v ./out/:/app/out/ gupy-scraper
+# Start API and Web (no scraper)
+docker-compose up -d
 
-# Run with custom environment variables
-docker run -e GUPY_COMPANY_LIMIT=10 -e GUPY_THREADS=8 \
-  -v ./out/:/app/out/ gupy-scraper
-
-# Run with .env file
-docker run --env-file .env -v ./out/:/app/out/ gupy-scraper
+# Run scraper manually (only when needed)
+docker-compose run --rm scraper
 ```
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GUPY_COMPANY_LIMIT` | `3` | Number of companies to fetch from API |
+| `GUPY_COMPANY_LIMIT` | `3` | Number of companies to fetch |
 | `GUPY_THREADS` | `16` | Parallel worker threads |
-| `GUPY_OUTPUT_FOLDER` | CLI arg | Output directory (overrides CLI second arg) |
+| `GUPY_OUTPUT_FOLDER` | CLI arg | Output directory |
 
 ### Linting
 
-This project uses basic Python. Run with:
-
 ```bash
-# Basic syntax check
-python3 -m py_compile app/main.py
+# Python syntax check
+python3 -m py_compile app/main.py api/app.py
 
-# Install dependencies for more thorough checks
+# With flake8
 pip install flake8
-flake8 app/main.py
+flake8 app/main.py api/app.py
 ```
 
 ### Testing
 
-No formal test suite exists. Manual testing can be done by running the scraper and verifying:
-- CSV files are created in the output folder
-- SQLite database is populated with correct data
+Manual testing by running the scraper and verifying:
 
 ```bash
 # Verify CSV output
@@ -78,165 +84,128 @@ ls -la out/
 # Verify SQLite data
 sqlite3 out/*.db ".tables"
 sqlite3 out/*.db "SELECT COUNT(*) FROM jobs;"
+
+# Test API
+curl http://localhost:5000/api/filters
+
+# Test Web UI
+curl http://localhost:8080/api/filters
 ```
 
 ## Code Style Guidelines
 
-### General Structure
-
-- Python 3.9+ (see Dockerfile)
-- Simple scripts, no heavy framework dependencies
-- Dependencies: `requests`, `beautifulsoup4`, `tqdm`
-
-### Imports
-
-```python
-# Standard library first, then third-party, then local
-import requests
-import csv
-import json
-import os
-import sys
-from bs4 import BeautifulSoup
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import tqdm
-```
-
-### Formatting
+### Python (app/main.py, api/app.py)
 
 - Use f-strings for string interpolation
-- Use 4 spaces for indentation (no tabs)
-- Limit lines to reasonable length (~80-120 characters)
+- 4 spaces for indentation
+- snake_case for functions/variables
+- UPPER_SNAKE_CASE for constants
+- Type hints for function signatures
 
 ```python
-# Good
-companies_csv_path = f'{folder}/{ts}-companies.csv'
-job_url = f'https://portal.api.gupy.io/api/company?limit={company_limit}'
+import os
+import sys
+import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Avoid
-companies_csv_path = folder + "/" + ts + "-companies.csv"
-```
-
-### Naming Conventions
-
-- Functions and variables: `snake_case`
-- Constants: `UPPER_SNAKE_CASE`
-- Files: `snake_case.py`
-
-```python
-# Good
-def fetch_and_process_job_data(company):
-    company_id = company['companyId']
-    company_limit = 3
-
-# Avoid
-def fetchAndProcessJobData(company):
-    companyId = company['companyId']
-```
-
-### Type Hints
-
-Add type hints where helpful, especially for function signatures:
-
-```python
 def fetch_and_process_job_data(company: dict) -> tuple:
-    """Fetch job data for a company."""
-    company_id: str = company['companyId']
+    company_id: str = company.get('companyId', '')
     return company_data, job_data_list
 ```
 
-### Error Handling
+### React (web/src/)
 
-Use try/except blocks with meaningful error messages:
+- Functional components with hooks
+- PascalCase for component names
+- CSS modules or styled-components
 
-```python
-try:
-    company_data, job_data_list = future.result()
-    companies_writer.writerow(company_data)
-except Exception as exc:
-    print(f"Generated an exception: {exc}")
-```
-
-Always handle key errors gracefully and provide defaults:
-
-```python
-job_id = job.get('id', '')
-job_title = job.get('title', 'N/A')
-```
-
-### Database/SQL
-
-- Use parameterized queries via sqlite3 CLI
-- Template variables in SQL: `${ts}` (replaced via `sed`)
-- Always write headers before data in CSV
-
-```sql
--- In sqlite-init.sql
-INSERT INTO companies SELECT * FROM companies_csv;
+```jsx
+function JobSearch({ value, onChange }) {
+  return <input value={value} onChange={onChange} />;
+}
 ```
 
 ### Shell Scripts
 
 - Use `#!/bin/sh` for portability
 - Check file existence and executability
-- Use proper quoting for variables
+- Proper variable quoting
 
 ```bash
-# Good
 if [ ! -x "app/main.py" ]; then
-  echo "Error: app/main.py not found or not executable"
+  echo "Error: app/main.py not found"
   exit 1
 fi
-
-# Good variable handling
 folder="${folder%/}/"
 ```
 
-### Git Conventions
+### Imports Order
+
+1. Standard library
+2. Third-party packages
+3. Local modules
+
+## Git Conventions
 
 - Branch naming: `feature/*`, `dev`, `main`
-- CI runs on push to `main`, `dev`, and `feature/*`
-- No pre-commit hooks configured
+- CI runs on push to `main`, `dev`, `feature/*`
+- No pre-commit hooks
 
 ## File Organization
 
 ```
 /home/abner.smartdb/src/gupy/
-├── AGENTS.md              # This file
-├── README.md             # Project documentation
-├── Dockerfile            # Docker image definition
-├── app/
-│   ├── main.py           # Main Python scraper
-│   └── requirements.txt  # Python dependencies
-├── run_scrap.sh          # Main entry point script
-├── create_sqlite_from_csv.sh
-├── sqlite-init.sql
-└── out/                 # Output directory (created at runtime)
+├── app/              # Scraper
+│   ├── main.py
+│   └── requirements.txt
+├── api/              # Flask API
+│   ├── app.py
+│   ├── Dockerfile
+│   └── requirements.txt
+├── web/              # React UI
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   ├── Dockerfile
+│   └── nginx.conf
+├── docker-compose.yml
+├── run_scrap.sh
+└── out/             # Output (created at runtime)
+```
+
+## Common Tasks
+
+### Adding a New Field
+
+1. `app/main.py`: Add field extraction
+2. `sqlite-init.sql`: Add column
+3. `api/app.py`: Update endpoint if needed
+4. `web/src/App.js`: Add to UI if needed
+
+### Changing API Configuration
+
+```bash
+# Via environment
+GUPY_COMPANY_LIMIT=10 docker-compose run --rm scraper
+
+# Via .env file
+cp .env_sample .env
+# Edit .env then:
+docker-compose --env-file .env up -d
+```
+
+### Rebuilding After Code Changes
+
+```bash
+# Rebuild specific service
+docker-compose build web
+docker-compose up -d --force-recreate web
 ```
 
 ## CI/CD
 
-GitHub Actions workflow (`.github/workflows/ci.yml`):
-1. Builds Docker image
-2. Runs scraper in container
-3. Stores SQLite database as artifact
-
-## Common Tasks
-
-### Adding a new field to scrape
-
-1. Modify `app/main.py`:
-   - Add field extraction in `fetch_and_process_job_data()`
-   - Add column to jobs CSV header
-2. Modify `sqlite-init.sql`:
-   - Add column to jobs table
-3. Update CSV header in `main.py`
-
-### Changing API limits
-
-Edit `company_limit` or `threads` in `app/main.py`:
-
-```python
-company_limit = 3  # Number of companies to fetch
-threads = 16       # Parallel workers
-```
+GitHub Actions (`.github/workflows/ci.yml`):
+1. Builds scraper, API, and web images
+2. Pushes to GHCR
+3. Runs scraper in CI
+4. Uploads SQLite as artifact
