@@ -41,7 +41,7 @@ jobs:
       - name: Build api
         run: |
           docker build -t ${{ env.registry }}/api:latest \
-            -f api/Dockerfile api/
+            -f api/Dockerfile .
 
       - name: Build web
         run: |
