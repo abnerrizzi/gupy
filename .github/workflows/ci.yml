@@ -64,21 +64,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run scraper
+      - name: Run scraper with volume mount
         run: |
-          docker volume create gupy_out || true
-          docker run --rm -v gupy_out:/app/out ${{ env.registry }}/scraper:latest
+          docker run --rm -v "${{ github.workspace }}/out:/app/out" \
+            ${{ env.registry }}/scraper:latest
 
-      - name: Create database link
+      - name: Find latest database
         run: |
-          ls -la out/*.db | tail -1 | awk '{print $9}' > latest_db.txt
+          ls -lt out/*.db | head -1 | awk '{print $9}' > latest_db.txt
           LATEST_DB=$(cat latest_db.txt)
           echo "outfile=$LATEST_DB" >> $GITHUB_ENV
-          ln -sf "$LATEST_DB" out/gupy_from_csv.db
 
       - name: Upload database artifact
         uses: actions/upload-artifact@v4
         with:
           name: gupy_from_csv.db
-          path: out/gupy_from_csv.db
+          path: out/*.db
           compression-level: 0
