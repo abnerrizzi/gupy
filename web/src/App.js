@@ -16,6 +16,7 @@ function App() {
   const [page, setPage] = useState(0);
 
   const [search, setSearch] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
   const [companyId, setCompanyId] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
@@ -29,8 +30,15 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchDebounced(search);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
     fetchJobs();
-  }, [search, companyId, city, state, department, workplaceType, jobType, page]);
+  }, [searchDebounced, companyId, city, state, department, workplaceType, jobType, page]);
 
   const fetchFilters = async () => {
     try {
@@ -56,7 +64,7 @@ function App() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (search) params.append('search', search);
+      if (searchDebounced) params.append('search', searchDebounced);
       if (companyId) params.append('company_id', companyId);
       if (city) params.append('city', city);
       if (state) params.append('state', state);
