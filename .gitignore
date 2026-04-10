@@ -1,2 +1,7 @@
 *.csv
 *.db
+.vscode
+.venv
+result.log
+.env
+out/*
