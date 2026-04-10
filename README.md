@@ -20,3 +20,19 @@ This script runs the Python scraper and creates the SQLite database.
 
 ```bash
 ./run_scrap.sh [output folder]
+```
+
+#### Environment Variables
+
+```bash
+# Customize behavior
+GUPY_COMPANY_LIMIT=10 GUPY_THREADS=8 ./run_scrap.sh out/
+
+# Or via Docker
+docker run -e GUPY_COMPANY_LIMIT=10 -e GUPY_THREADS=8 -v ./out/:/app/out/ gupy-scraper
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GUPY_COMPANY_LIMIT` | `3` | Number of companies to fetch |
+| `GUPY_THREADS` | `16` | Parallel worker threads |
