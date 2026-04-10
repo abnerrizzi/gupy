@@ -15,14 +15,14 @@ This repository contains a job scraping system with three main components:
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Scraper    │────▶│   SQLite     │◀────│    API      │
-│  (Python)   │     │   Database  │     │  (Flask)    │
+│   Scraper    │────▶│   SQLite     │◀────│     API      │
+│  (Python)    │     │   Database   │     │   (Flask)    │
 └──────────────┘     └──────────────┘     └──────────────┘
                                                   │
                                                   ▼
                                          ┌──────────────┐
-                                         │    Web      │
-                                         │  (React)    │
+                                         │     Web      │
+                                         │   (React)    │
                                          └──────────────┘
 ```
 
