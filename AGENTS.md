@@ -150,6 +150,7 @@ folder="${folder%/}/"
 - Branch naming: `feature/*`, `dev`, `main`
 - CI runs on push to `main`, `dev`, `feature/*`
 - No pre-commit hooks
+- Use the `auto-commit` skill (`.skills/auto-commit.md`) for automatic commits
 
 ## File Organization
 

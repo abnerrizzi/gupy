@@ -29,7 +29,8 @@ function JobDetails({ job, company, onClose }) {
 
   const getJobUrl = () => {
     if (!company || !company.career_page_url) return '#';
-    const baseUrl = company.career_page_url.split('/_next')[0];
+    const url = new URL(company.career_page_url);
+    const baseUrl = `${url.protocol}//${url.host}`;
     return `${baseUrl}/jobs/${job.id}`;
   };
 
