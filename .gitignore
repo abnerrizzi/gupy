@@ -4,3 +4,4 @@
 .venv
 result.log
 .env
+out/*
