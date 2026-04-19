@@ -37,7 +37,7 @@ jobs:
       - name: Build scraper
         run: |
           docker build -t ${{ env.registry }}/scraper:latest \
-            -f Dockerfile.scraper .
+            -f Dockerfile .
 
       - name: Build api
         run: |
