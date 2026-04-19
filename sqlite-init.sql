@@ -55,11 +55,12 @@ INSERT OR IGNORE INTO companies_all
 SELECT * FROM companies_${ts} WHERE '${ts}' != '0';
 
 -- 4. UPDATE VIEWS
+-- Views now point to the "all" tables to provide a cumulative view for the API
 DROP VIEW IF EXISTS jobs;
-CREATE VIEW jobs AS SELECT * FROM jobs_${ts};
+CREATE VIEW jobs AS SELECT * FROM jobs_all;
 
 DROP VIEW IF EXISTS companies;
-CREATE VIEW companies AS SELECT * FROM companies_${ts};
+CREATE VIEW companies AS SELECT * FROM companies_all;
 
 -- Create or replace the "latest" tables for legacy compatibility
 DROP TABLE IF EXISTS jobs_latest;
@@ -69,24 +70,29 @@ DROP TABLE IF EXISTS companies_latest;
 CREATE TABLE companies_latest AS SELECT * FROM companies;
 
 -- Create the main job_details view
+-- We use LEFT JOIN to ensure jobs are visible even if company data is missing
+-- We use rtrim to avoid double slashes in URLs
 DROP VIEW IF EXISTS job_details;
 CREATE VIEW job_details AS
     SELECT
         j.id AS job_id,
-        c.id AS company_id,
+        j.company_id,
         j.title AS job_title,
-        c.name AS company_name,
+        COALESCE(c.name, j.company_id) AS company_name,
         -- Construct job URLs safely based on source
         CASE 
             WHEN j.source = 'gupy' THEN
                 CASE 
                     WHEN c.career_page_url LIKE '%/%' THEN
                         substr(c.career_page_url, 1, instr(substr(c.career_page_url, 9), '/') + 8) || 'jobs/' || j.id
-                    ELSE c.career_page_url || '/jobs/' || j.id
+                    WHEN c.career_page_url IS NOT NULL THEN 
+                        rtrim(c.career_page_url, '/') || '/jobs/' || j.id
+                    ELSE 'https://portal.gupy.io/job/' || j.id
                 END
             WHEN j.source = 'inhire' THEN
-                c.career_page_url || '/vaga/' || j.id
-            ELSE c.career_page_url || '/jobs/' || j.id
+                COALESCE(rtrim(c.career_page_url, '/'), 'https://carreira.inhire.com.br/carreiras/' || j.company_id) || '/vaga/' || j.id
+            ELSE 
+                COALESCE(rtrim(c.career_page_url, '/'), '') || '/jobs/' || j.id
         END AS job_url,
         j.department AS job_department,
         j.type AS job_type,
@@ -95,9 +101,9 @@ CREATE VIEW job_details AS
         j.workplace_state,
         j.source
     FROM
-        jobs j
-    JOIN
-        companies c ON j.company_id = c.id;
+        jobs_all j
+    LEFT JOIN
+        companies_all c ON j.company_id = c.id;
 
 -- 5. ANALYTICS
 -- Summary statistics
