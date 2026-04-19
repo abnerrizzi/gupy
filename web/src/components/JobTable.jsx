@@ -7,12 +7,17 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
   };
 
   const formatWorkplaceType = (type) => {
-    switch (type) {
+    if (!type) return 'N/A';
+    switch (type.toLowerCase()) {
       case 'on-site':
+      case 'presencial':
         return 'Presencial';
       case 'remote':
+      case 'remoto':
+      case 'home office':
         return 'Remoto';
       case 'hybrid':
+      case 'híbrido':
         return 'Híbrido';
       default:
         return type;
@@ -20,11 +25,18 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
   };
 
   const formatJobType = (type) => {
-    switch (type) {
+    if (!type) return 'N/A';
+    switch (type.toLowerCase()) {
       case 'vacancy_type_effective':
+      case 'efetivo':
+      case 'full-time':
         return 'Efetiva';
       case 'vacancy_type_talent_pool':
+      case 'banco de talentos':
         return 'Banco de Talentos';
+      case 'estágio':
+      case 'internship':
+        return 'Estágio';
       default:
         return type;
     }
@@ -39,7 +51,7 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
             <th>Empresa</th>
             <th>Local</th>
             <th>Departamento</th>
-            <th>Tipo</th>
+            <th>Tipo / Fonte</th>
           </tr>
         </thead>
         <tbody>
@@ -53,21 +65,30 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
             </tr>
           ) : (
             jobs.map((job) => (
-              <tr key={job.id} onClick={() => onJobClick(job)}>
-                <td>{job.title}</td>
-                <td>{getCompanyName(job.company_id)}</td>
+              <tr key={job.job_id} onClick={() => onJobClick(job)}>
+                <td>
+                  <a href={job.job_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                    {job.job_title}
+                  </a>
+                </td>
+                <td>{job.company_name || getCompanyName(job.company_id)}</td>
                 <td>
                   {job.workplace_city}, {job.workplace_state}
                 </td>
-                <td>{job.department}</td>
+                <td>{job.job_department}</td>
                 <td>
-                  <span className={`type-${job.workplace_type}`}>
-                    {formatWorkplaceType(job.workplace_type)}
-                  </span>
-                  {' / '}
-                  <span className={`type-${job.type}`}>
-                    {formatJobType(job.type)}
-                  </span>
+                  <div>
+                    <span className={`type-${job.workplace_type}`}>
+                      {formatWorkplaceType(job.workplace_type)}
+                    </span>
+                    {' / '}
+                    <span className={`type-${job.job_type}`}>
+                      {formatJobType(job.job_type)}
+                    </span>
+                  </div>
+                  <div className="job-source">
+                    <small>Fonte: <strong>{job.source}</strong></small>
+                  </div>
                 </td>
               </tr>
             ))

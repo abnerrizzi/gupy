@@ -60,6 +60,15 @@ function FilterBar({ companies, filters, selected, onChange }) {
           </option>
         ))}
       </select>
+
+      <select value={selected.source} onChange={handleChange('source')}>
+        <option value="">Todas as fontes</option>
+        {filters.sources && filters.sources.map((source) => (
+          <option key={source} value={source}>
+            {source.toUpperCase()}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

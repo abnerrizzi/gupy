@@ -4,12 +4,17 @@ function JobDetails({ job, company, onClose }) {
   if (!job) return null;
 
   const formatWorkplaceType = (type) => {
-    switch (type) {
+    if (!type) return 'N/A';
+    switch (type.toLowerCase()) {
       case 'on-site':
+      case 'presencial':
         return 'Presencial';
       case 'remote':
+      case 'remoto':
+      case 'home office':
         return 'Remoto';
       case 'hybrid':
+      case 'híbrido':
         return 'Híbrido';
       default:
         return type;
@@ -17,21 +22,21 @@ function JobDetails({ job, company, onClose }) {
   };
 
   const formatJobType = (type) => {
-    switch (type) {
+    if (!type) return 'N/A';
+    switch (type.toLowerCase()) {
       case 'vacancy_type_effective':
+      case 'efetivo':
+      case 'full-time':
         return 'Efetiva';
       case 'vacancy_type_talent_pool':
+      case 'banco de talentos':
         return 'Banco de Talentos';
+      case 'estágio':
+      case 'internship':
+        return 'Estágio';
       default:
         return type;
     }
-  };
-
-  const getJobUrl = () => {
-    if (!company || !company.career_page_url) return '#';
-    const url = new URL(company.career_page_url);
-    const baseUrl = `${url.protocol}//${url.host}`;
-    return `${baseUrl}/jobs/${job.id}`;
   };
 
   return (
@@ -41,12 +46,18 @@ function JobDetails({ job, company, onClose }) {
           &times;
         </button>
 
-        <h2>{job.title}</h2>
+        {company?.logo_url && (
+          <div className="JobDetails-logo">
+            <img src={company.logo_url} alt={company.name} />
+          </div>
+        )}
+
+        <h2>{job.job_title}</h2>
 
         <div className="JobDetails-info">
           <div>
             <label>Empresa:</label>
-            {company?.name || job.company_id}
+            {company?.name || job.company_name || job.company_id}
           </div>
           <div>
             <label>Local:</label>
@@ -54,7 +65,7 @@ function JobDetails({ job, company, onClose }) {
           </div>
           <div>
             <label>Departamento:</label>
-            {job.department}
+            {job.job_department}
           </div>
           <div>
             <label>Tipo de trabalho:</label>
@@ -62,17 +73,21 @@ function JobDetails({ job, company, onClose }) {
           </div>
           <div>
             <label>Tipo de vaga:</label>
-            {formatJobType(job.type)}
+            {formatJobType(job.job_type)}
+          </div>
+          <div>
+            <label>Fonte:</label>
+            <strong>{job.source?.toUpperCase()}</strong>
           </div>
         </div>
 
         <a
           className="JobDetails-apply"
-          href={getJobUrl()}
+          href={job.job_url}
           target="_blank"
           rel="noopener noreferrer"
         >
-          Candidatar-se
+          Candidatar-se na {job.source === 'gupy' ? 'Gupy' : 'Inhire'}
         </a>
       </div>
     </div>
