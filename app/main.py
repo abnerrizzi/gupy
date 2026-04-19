@@ -102,8 +102,11 @@ class InhireScraper(Scraper):
                         'name': title,
                         'url': href
                     })
+            companies.insert(0, {'tenant': 'yandeh', 'name': 'Yandeh', 'url': 'https://carreira.inhire.com.br/carreiras/yandeh/'})
             # For Inhire, we fetch all by default as they are fewer than Gupy
-            return companies
+            limited_companies = companies[:COMPANY_LIMIT]
+            print(f"DEBUG: Limited to {len(limited_companies)} companies")
+            return limited_companies
         except Exception as e:
             print(f"Failed to fetch Inhire company list: {e}")
             return []
@@ -116,13 +119,24 @@ class InhireScraper(Scraper):
         job_tuples = []
         
         # Small delay to avoid aggressive rate limiting
-        time.sleep(1)
+        time.sleep(2)
 
         # Try to find the actual inhire.app URL in the WP page
         try:
-            resp = self.session.get(wp_url, timeout=10)
+            # Use a more realistic browser session for the WP page too
+            wp_headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            }
+            resp = self.session.get(wp_url, headers=wp_headers, timeout=10)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.content, 'html.parser')
+                # Look for potential JSON data in scripts
+                for script in soup.find_all('script'):
+                    if script.string and ('jobs' in script.string or 'vagas' in script.string):
+                        # print(f"DEBUG: Found script with 'jobs' or 'vagas' (first 200 chars): {script.string[:200]}")
+                        pass
                 # Look for links to inhire.app
                 app_links = soup.find_all('a', href=lambda x: x and 'inhire.app' in x)
                 for al in app_links:
@@ -137,37 +151,67 @@ class InhireScraper(Scraper):
             pass
 
         # Inhire API URL
-        api_url = f"https://api.inhire.app/api/v1/tenants/{tenant}/jobs"
+        api_url = "https://api.inhire.app/job-posts/public/pages"
         company_tuple = (tenant, name, None, wp_url, json.dumps(company), self.source_name)
         
         try:
-            # Add some randomness to User-Agent or just use a very common one
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept': 'application/json, text/plain, */*',
-                'X-Inhire-Tenant': tenant,
-                'Referer': f'https://{tenant}.inhire.app/',
-                'Origin': f'https://{tenant}.inhire.app'
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
+                'dnt': '1',
+                'origin': f'https://{tenant}.inhire.app',
+                'priority': 'u=1, i',
+                'referer': f'https://{tenant}.inhire.app/',
+                'sec-ch-ua': '"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-site',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
+                'x-tenant': tenant
             }
             response = self.session.get(api_url, headers=headers, timeout=15)
             if response.status_code == 200:
-                jobs = response.json()
+                data = response.json()
+                print(f"DEBUG: API response for {tenant} keys: {list(data.keys())}")
+                if 'data' in data:
+                     print(f"DEBUG: 'data' type: {type(data['data'])}")
+                     if isinstance(data['data'], list):
+                         print(f"DEBUG: 'data' length: {len(data['data'])}")
+                     elif isinstance(data['data'], dict):
+                         print(f"DEBUG: 'data' keys: {list(data['data'].keys())}")
+                
+                # Jobs can be in 'data' or 'jobsPage' field
+                jobs = data.get('data', data.get('jobsPage', []))
+                
+                print(f"DEBUG: Found {len(jobs)} jobs for {tenant}")
                 if isinstance(jobs, list):
                     for job in jobs:
-                        job_id = str(job.get('id', ''))
-                        job_title = job.get('title', 'N/A')
+                        # Inhire uses 'jobId' or 'id', and 'displayName' or 'title'
+                        job_id = str(job.get('jobId', job.get('id', '')))
+                        job_title = job.get('displayName', job.get('title', 'N/A'))
                         job_type = job.get('type', 'N/A')
                         department = job.get('category', {}).get('name', 'N/A')
-                        workplace_city = job.get('location', {}).get('city', 'N/A')
-                        workplace_state = job.get('location', {}).get('state', 'N/A')
-                        workplace_type = job.get('workMode', 'N/A')
+                        
+                        # Location parsing: "City, ST, BR" or dict
+                        loc = job.get('location', 'N/A')
+                        workplace_city = 'N/A'
+                        workplace_state = 'N/A'
+                        
+                        if isinstance(loc, dict):
+                            workplace_city = loc.get('city', 'N/A')
+                            workplace_state = loc.get('state', 'N/A')
+                        elif isinstance(loc, str) and loc != 'N/A':
+                            parts = [p.strip() for p in loc.split(',')]
+                            if len(parts) >= 1: workplace_city = parts[0]
+                            if len(parts) >= 2: workplace_state = parts[1]
+
+                        workplace_type = job.get('workplaceType', job.get('workMode', 'N/A'))
                         
                         job_tuples.append((job_id, tenant, job_title, job_type, department, workplace_city, workplace_state, workplace_type, self.source_name))
             elif response.status_code == 403:
-                print(f"CRITICAL: Inhire API returned 403 for tenant {tenant}. Exiting.")
-                sys.stdout.flush()
-                # Force exit from thread
-                os._exit(1)
+                print(f"ERROR: Inhire API returned 403 for tenant {tenant}. Skipping.")
             else:
                 # Log other non-200 responses
                 print(f"Inhire API returned {response.status_code} for tenant {tenant} (URL: {api_url})")
