@@ -23,8 +23,8 @@ folder = sys.argv[2]
 db_file = sys.argv[3]
 
 # Database configuration
-company_limit = 3
-threads = 16
+company_limit = int(os.environ.get('GUPY_COMPANY_LIMIT', 3))
+threads = int(os.environ.get('GUPY_THREADS', 16))
 db_path = os.path.join(folder, db_file)
 
 # Thread-safe database connection
