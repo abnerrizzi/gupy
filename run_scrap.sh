@@ -15,6 +15,15 @@ if [ ! -x "app/main.py" ]; then
 fi
 
 echo "Starting job scraping..."
+
+# Phase 1: Ensure database schema exists (Initial run safety for API)
+echo "Initializing database schema..."
+temp_init_sql="$folder/init-schema.sql"
+# Use '0' as a dummy timestamp for initialization
+sed "s#\${ts}#0#g" sqlite-init.sql > "$temp_init_sql"
+sqlite3 "$folder/$db_file" < "$temp_init_sql"
+rm -f "$temp_init_sql"
+
 # Run the Python script (creates SQLite with data)
 python3 app/main.py "$ts" "$folder" "$db_file"
 

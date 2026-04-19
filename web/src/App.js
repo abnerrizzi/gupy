@@ -23,6 +23,7 @@ function App() {
   const [department, setDepartment] = useState('');
   const [workplaceType, setWorkplaceType] = useState('');
   const [jobType, setJobType] = useState('');
+  const [source, setSource] = useState('');
 
   useEffect(() => {
     fetchFilters();
@@ -38,7 +39,7 @@ function App() {
 
   useEffect(() => {
     fetchJobs();
-  }, [searchDebounced, companyId, city, state, department, workplaceType, jobType, page]);
+  }, [searchDebounced, companyId, city, state, department, workplaceType, jobType, source, page]);
 
   const fetchFilters = async () => {
     try {
@@ -71,6 +72,7 @@ function App() {
       if (department) params.append('department', department);
       if (workplaceType) params.append('workplace_type', workplaceType);
       if (jobType) params.append('type', jobType);
+      if (source) params.append('source', source);
       params.append('offset', page * 100);
 
       const res = await fetch(`${API_URL}/jobs?${params}`);
@@ -109,9 +111,24 @@ function App() {
       case 'jobType':
         setJobType(value);
         break;
+      case 'source':
+        setSource(value);
+        break;
       default:
         break;
     }
+    setPage(0);
+  };
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setCompanyId('');
+    setCity('');
+    setState('');
+    setDepartment('');
+    setWorkplaceType('');
+    setJobType('');
+    setSource('');
     setPage(0);
   };
 
@@ -132,7 +149,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Gupy Job Search</h1>
+        <h1>Job Search</h1>
         <p>{total} vagas encontradas</p>
       </header>
 
@@ -149,9 +166,11 @@ function App() {
               state,
               department,
               workplaceType,
-              jobType
+              jobType,
+              source
             }}
             onChange={handleFilterChange}
+            onReset={handleResetFilters}
           />
         )}
 
