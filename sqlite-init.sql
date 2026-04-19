@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS jobs_all (
     department TEXT,
     workplace_city TEXT,
     workplace_state TEXT,
-    workplace_type TEXT
+    workplace_type TEXT,
+    source TEXT
 );
 
 CREATE TABLE IF NOT EXISTS companies_all (
@@ -16,7 +17,8 @@ CREATE TABLE IF NOT EXISTS companies_all (
     name TEXT,            
     logo_url TEXT,
     career_page_url TEXT,
-    company_data TEXT
+    company_data TEXT,
+    source TEXT
 );
 
 -- 2. HANDLE TEMPORARY/TIMESTAMPED TABLES
@@ -30,7 +32,8 @@ CREATE TABLE IF NOT EXISTS jobs_${ts} (
     department TEXT,
     workplace_city TEXT,
     workplace_state TEXT,
-    workplace_type TEXT
+    workplace_type TEXT,
+    source TEXT
 );
 
 CREATE TABLE IF NOT EXISTS companies_${ts} (
@@ -38,7 +41,8 @@ CREATE TABLE IF NOT EXISTS companies_${ts} (
     name TEXT,            
     logo_url TEXT,
     career_page_url TEXT,
-    company_data TEXT
+    company_data TEXT,
+    source TEXT
 );
 
 -- 3. DATA MIGRATION
@@ -72,17 +76,24 @@ CREATE VIEW job_details AS
         c.id AS company_id,
         j.title AS job_title,
         c.name AS company_name,
-        -- Construct job URLs safely
+        -- Construct job URLs safely based on source
         CASE 
-            WHEN c.career_page_url LIKE '%/%' THEN
-                substr(c.career_page_url, 1, instr(substr(c.career_page_url, 9), '/') + 8) || 'jobs/' || j.id
+            WHEN j.source = 'gupy' THEN
+                CASE 
+                    WHEN c.career_page_url LIKE '%/%' THEN
+                        substr(c.career_page_url, 1, instr(substr(c.career_page_url, 9), '/') + 8) || 'jobs/' || j.id
+                    ELSE c.career_page_url || '/jobs/' || j.id
+                END
+            WHEN j.source = 'inhire' THEN
+                c.career_page_url || '/vaga/' || j.id
             ELSE c.career_page_url || '/jobs/' || j.id
         END AS job_url,
         j.department AS job_department,
         j.type AS job_type,
         j.workplace_type AS workplace_type,
         j.workplace_city,
-        j.workplace_state
+        j.workplace_state,
+        j.source
     FROM
         jobs j
     JOIN
