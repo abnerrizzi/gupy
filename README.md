@@ -1,38 +1,93 @@
-# Data Scraping and SQLite Management
+# Gupy Job Scraping System
 
-This repository contains scripts and tools for scraping job data from an API, creating an SQLite database from CSV files, and managing data.
+A complete pipeline for scraping job data from the Gupy API, storing it in SQLite, and serving it via a Flask API to a React web interface.
 
-## Overview
+## Architecture
 
-- `run_scrap.sh`: A shell script to run the data scraping process and create an SQLite database.
-- `create_sqlite_from_csv.sh`: A shell script to initialize an SQLite database using CSV files.
-- `sqlite-init.sql`: An SQL template used by `create_sqlite_from_csv.sh` to set up the SQLite database and import data.
-- `app/main.py`: A Python script that scrapes job data from an API and writes it to CSV files.
-- `app/requirements.txt`: Python package dependencies required for `app/main.py`.
-
-## Scripts
-
-### `run_scrap.sh`
-
-This script runs the Python scraper and creates the SQLite database.
-
-#### Usage
-
-```bash
-./run_scrap.sh [output folder]
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Scraper    │────▶│   SQLite     │◀────│     API      │
+│  (Python)    │     │   Database   │     │   (Flask)    │
+└──────────────┘     └──────────────┘     └──────────────┘
+                                                  │
+                                                  ▼
+                                         ┌──────────────┐
+                                         │     Web      │
+                                         │   (React)    │
+                                         └──────────────┘
 ```
 
-#### Environment Variables
+## Components
 
-```bash
-# Customize behavior
-GUPY_COMPANY_LIMIT=10 GUPY_THREADS=8 ./run_scrap.sh out/
+- **Scraper (`app/`)**: Python script that fetches job data and exports to CSV/SQLite.
+- **API (`api/`)**: Flask REST API serving job filters and data.
+- **Web (`web/`)**: React-based dashboard for searching and filtering jobs.
 
-# Or via Docker
-docker run -e GUPY_COMPANY_LIMIT=10 -e GUPY_THREADS=8 -v ./out/:/app/out/ gupy-scraper
-```
+## Getting Started
+
+### Using Docker Compose (Recommended)
+
+1. **Build and start services**:
+   ```bash
+   docker-compose build
+   docker-compose up -d
+   ```
+   *The API will be available at `http://localhost:5000` and the Web UI at `http://localhost:8080`.*
+
+2. **Run Scraper manually**:
+   ```bash
+   docker-compose run --rm scraper
+   ```
+
+### Running Locally
+
+1. **Run full pipeline**:
+   ```bash
+   ./run_scrap.sh out/
+   ```
+
+2. **Run components separately**:
+   ```bash
+   # Scraper only
+   python3 app/main.py "<timestamp>" "<folder>"
+   
+   # Initialize SQLite from CSV
+   ./create_sqlite_from_csv.sh "<timestamp>" "<folder>"
+   ```
+
+## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GUPY_COMPANY_LIMIT` | `3` | Number of companies to fetch |
 | `GUPY_THREADS` | `16` | Parallel worker threads |
+| `GUPY_OUTPUT_FOLDER` | CLI arg | Output directory for CSV/DB files |
+
+## Development
+
+### Linting
+```bash
+python3 -m py_compile app/main.py api/app.py
+# or
+flake8 app/main.py api/app.py
+```
+
+### Verification
+```bash
+# Verify SQLite data
+sqlite3 out/*.db "SELECT COUNT(*) FROM jobs;"
+
+# Test API
+curl http://localhost:5000/api/filters
+```
+
+## Project Structure
+
+```
+├── app/              # Scraper (Python)
+├── api/              # Flask API
+├── web/              # React UI
+├── run_scrap.sh      # Pipeline script
+├── sqlite-init.sql   # Database schema
+└── out/              # Generated data (CSV/SQLite)
+```
