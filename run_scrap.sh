@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ts=$(date +%Y%m%d%H%M%S)
-folder=${1:-out/}
+folder=${1:-out}
 
 # Ensure folder does NOT end with a slash and create it 
 folder="${folder%/}"
