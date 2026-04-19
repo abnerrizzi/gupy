@@ -4,7 +4,7 @@ ts=$(date +%Y%m%d%H%M%S)
 folder=${1:-out/}
 
 # Ensure folder ends with a slash and create it 
-folder="${folder%/}/"
+folder="${folder%/}"
 mkdir -p "$folder"
 db_file="gupy.db"
 
