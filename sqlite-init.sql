@@ -19,37 +19,38 @@ CREATE TABLE IF NOT EXISTS companies_all (
     company_data TEXT
 );
 
--- 2. API VIEW INITIALIZATION
--- Create views pointing to 'all' tables if they don't exist
-CREATE VIEW IF NOT EXISTS jobs AS SELECT * FROM jobs_all;
-CREATE VIEW IF NOT EXISTS companies AS SELECT * FROM companies_all;
+-- 2. HANDLE TEMPORARY/TIMESTAMPED TABLES
+-- We always create these to avoid "no such table" errors in subsequent steps.
+-- If ${ts} is 0, these are just dummy tables for initialization.
+CREATE TABLE IF NOT EXISTS jobs_${ts} (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    title TEXT,
+    type TEXT,
+    department TEXT,
+    workplace_city TEXT,
+    workplace_state TEXT,
+    workplace_type TEXT
+);
 
--- 3. DATA MIGRATION (Only if timestamped tables exist)
--- Use a block that only executes if the tables exist
--- We'll handle the timestamped logic here. 
--- Note: In Phase 1 (pre-scrape), ${ts} might be '0'. 
--- We'll check for table existence before inserting.
+CREATE TABLE IF NOT EXISTS companies_${ts} (
+    id TEXT PRIMARY KEY,
+    name TEXT,            
+    logo_url TEXT,
+    career_page_url TEXT,
+    company_data TEXT
+);
 
+-- 3. DATA MIGRATION
+-- Migration from current run to 'all' tables
+-- If ${ts} is 0, this does nothing.
 INSERT OR IGNORE INTO jobs_all 
 SELECT * FROM jobs_${ts} WHERE '${ts}' != '0';
 
 INSERT OR IGNORE INTO companies_all 
 SELECT * FROM companies_${ts} WHERE '${ts}' != '0';
 
--- 4. UPDATE VIEWS TO LATEST
--- We use separate DROP/CREATE logic because UNION ALL with a non-existent table fails
-DROP VIEW IF EXISTS jobs;
-DROP VIEW IF EXISTS companies;
-
--- Use a shell-friendly approach: create views pointing to 'all' as a fallback,
--- then if ts is not 0, we redefine them.
-CREATE VIEW jobs AS SELECT * FROM jobs_all;
-CREATE VIEW companies AS SELECT * FROM companies_all;
-
--- If timestamped tables exist (ts != 0), redefine views to use them
--- This next part is slightly tricky in pure SQL without conditional execution.
--- We will use the fact that 'latest' is updated via the runner.
-
+-- 4. UPDATE VIEWS
 DROP VIEW IF EXISTS jobs;
 CREATE VIEW jobs AS SELECT * FROM jobs_${ts};
 
@@ -87,7 +88,8 @@ CREATE VIEW job_details AS
     JOIN
         companies c ON j.company_id = c.id;
 
--- 5. ANALYTICS (Only if ts != 0)
+-- 5. ANALYTICS
+-- Summary statistics
 SELECT '----------------------------------------------' WHERE '${ts}' != '0';
 SELECT 
     printf('%d jobs scraped from %d companies', 
@@ -95,7 +97,6 @@ SELECT
         (SELECT COUNT(*) FROM companies_${ts})
     ) AS result WHERE '${ts}' != '0';
 
--- Summary statistics
 SELECT '----------------------------------------------';
 SELECT
     printf('Total: %d companies and %d jobs in the database', 
