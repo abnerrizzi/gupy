@@ -90,7 +90,7 @@ CREATE VIEW job_details AS
                     ELSE 'https://portal.gupy.io/job/' || j.id
                 END
             WHEN j.source = 'inhire' THEN
-                COALESCE(rtrim(c.career_page_url, '/'), 'https://carreira.inhire.com.br/carreiras/' || j.company_id) || '/vaga/' || j.id
+                'https://' || j.company_id || '.inhire.app/vagas/' || j.id || '/description'
             ELSE 
                 COALESCE(rtrim(c.career_page_url, '/'), '') || '/jobs/' || j.id
         END AS job_url,

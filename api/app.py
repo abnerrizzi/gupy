@@ -51,9 +51,8 @@ def get_job_url(job, company):
         return f"https://portal.gupy.io/job/{job_id}"
     
     if source == 'inhire':
-        if company and company.get('career_page_url'):
-            return f"{company['career_page_url'].rstrip('/')}/vaga/{job_id}"
-        return f"https://carreira.inhire.com.br/carreiras/{job.get('company_id')}/vaga/{job_id}"
+        tenant = job.get('company_id')
+        return f"https://{tenant}.inhire.app/vagas/{job_id}/description"
     
     return ""
 
