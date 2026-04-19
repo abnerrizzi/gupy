@@ -1,6 +1,6 @@
-# Gupy Job Scraping System
+# Job Scraping System
 
-A complete pipeline for scraping job data from the Gupy API, storing it in SQLite, and serving it via a Flask API to a React web interface.
+A complete pipeline for scraping job data from the API(gupy/inhire), storing it in SQLite, and serving it via a Flask API to a React web interface.
 
 ## Architecture
 
