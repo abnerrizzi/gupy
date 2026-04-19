@@ -3,4 +3,5 @@
 .vscode
 .venv
 result.log
-out/
+.env
+out/*

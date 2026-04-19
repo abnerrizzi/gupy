@@ -22,21 +22,17 @@ This script runs the Python scraper and creates the SQLite database.
 ./run_scrap.sh [output folder]
 ```
 
-### Running with Docker
-
-You can run the scraper inside a Docker container.
-
-#### 1. Build the Docker Image
+#### Environment Variables
 
 ```bash
-docker build -t gupy-scraper .
+# Customize behavior
+GUPY_COMPANY_LIMIT=10 GUPY_THREADS=8 ./run_scrap.sh out/
+
+# Or via Docker
+docker run -e GUPY_COMPANY_LIMIT=10 -e GUPY_THREADS=8 -v ./out/:/app/out/ gupy-scraper
 ```
 
-#### 2. Run the Container
-
-To run the scrap process and keep the generated data, you can mount a volume:
-
-```bash
-docker run -it --rm -v $(pwd)/output:/app/output gupy-scraper ./run_scrap.sh /app/output
-```
-
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GUPY_COMPANY_LIMIT` | `3` | Number of companies to fetch |
+| `GUPY_THREADS` | `16` | Parallel worker threads |
