@@ -5,6 +5,7 @@ import json
 import sqlite3
 import tqdm
 import threading
+import time
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib3.util.retry import Retry
@@ -114,6 +115,9 @@ class InhireScraper(Scraper):
         tenant = company['tenant']
         job_tuples = []
         
+        # Small delay to avoid aggressive rate limiting
+        time.sleep(1)
+
         # Try to find the actual inhire.app URL in the WP page
         try:
             resp = self.session.get(wp_url, timeout=10)
@@ -137,10 +141,13 @@ class InhireScraper(Scraper):
         company_tuple = (tenant, name, None, wp_url, json.dumps(company), self.source_name)
         
         try:
+            # Add some randomness to User-Agent or just use a very common one
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 'Accept': 'application/json, text/plain, */*',
-                'X-Inhire-Tenant': tenant
+                'X-Inhire-Tenant': tenant,
+                'Referer': f'https://{tenant}.inhire.app/',
+                'Origin': f'https://{tenant}.inhire.app'
             }
             response = self.session.get(api_url, headers=headers, timeout=15)
             if response.status_code == 200:
@@ -156,8 +163,13 @@ class InhireScraper(Scraper):
                         workplace_type = job.get('workMode', 'N/A')
                         
                         job_tuples.append((job_id, tenant, job_title, job_type, department, workplace_city, workplace_state, workplace_type, self.source_name))
+            elif response.status_code == 403:
+                print(f"CRITICAL: Inhire API returned 403 for tenant {tenant}. Exiting.")
+                sys.stdout.flush()
+                # Force exit from thread
+                os._exit(1)
             else:
-                # Log non-200 responses to debug
+                # Log other non-200 responses
                 print(f"Inhire API returned {response.status_code} for tenant {tenant} (URL: {api_url})")
         except Exception as e:
             print(f"Error processing Inhire jobs for {tenant}: {e}")
@@ -219,11 +231,27 @@ if __name__ == "__main__":
     db_file = sys.argv[3]
     db_path = os.path.join(folder, db_file)
 
+    # Debug env vars
+    print(f"GUPY_ENABLED: {os.environ.get('GUPY_ENABLED')}")
+    print(f"INHIRE_ENABLED: {os.environ.get('INHIRE_ENABLED')}")
+
     os.makedirs(folder, exist_ok=True)
     init_database_tables(db_path, ts)
     
     session = get_http_session()
-    scrapers = [GupyScraper(session), InhireScraper(session)]
+    
+    gupy_enabled = os.environ.get('GUPY_ENABLED', 'true').lower() == 'true'
+    inhire_enabled = os.environ.get('INHIRE_ENABLED', 'true').lower() == 'true'
+
+    scrapers = []
+    if gupy_enabled:
+        scrapers.append(GupyScraper(session))
+    if inhire_enabled:
+        scrapers.append(InhireScraper(session))
+    
+    if not scrapers:
+        print("No scrapers enabled. Exiting.")
+        sys.exit(0)
     
     all_companies = []
     all_jobs = []
@@ -233,6 +261,9 @@ if __name__ == "__main__":
         companies = scraper.fetch_companies()
         print(f"Found {len(companies)} companies in {scraper.source_name}")
         
+        scraper_companies = 0
+        scraper_jobs = 0
+        
         with ThreadPoolExecutor(max_workers=THREADS) as executor:
             future_to_company = {executor.submit(scraper.fetch_jobs, company): company for company in companies}
             
@@ -241,8 +272,12 @@ if __name__ == "__main__":
                     company_tuple, job_tuples = future.result()
                     all_companies.append(company_tuple)
                     all_jobs.extend(job_tuples)
+                    scraper_companies += 1
+                    scraper_jobs += len(job_tuples)
                 except Exception as exc:
                     print(f"Worker generated an exception: {exc}")
+        
+        print(f"Collected {scraper_jobs} jobs from {scraper_companies} companies for {scraper.source_name}")
 
     # Single transaction for all data
     print(f"Inserting data into database: {len(all_companies)} companies, {len(all_jobs)} jobs...")
