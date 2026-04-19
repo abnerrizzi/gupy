@@ -12,13 +12,15 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 # Constants
-COMPANY_LIMIT = int(os.environ.get('GUPY_COMPANY_LIMIT', 30))
+GUPY_LIMIT = int(os.environ.get('GUPY_COMPANY_LIMIT', 30))
+INHIRE_LIMIT = int(os.environ.get('INHIRE_COMPANY_LIMIT', 10))
 THREADS = int(os.environ.get('GUPY_THREADS', 16))
 
 class Scraper:
     def __init__(self, session):
         self.session = session
         self.source_name = "unknown"
+        self.limit = 30
 
     def fetch_companies(self):
         raise NotImplementedError
@@ -30,10 +32,11 @@ class GupyScraper(Scraper):
     def __init__(self, session):
         super().__init__(session)
         self.source_name = "gupy"
+        self.limit = GUPY_LIMIT
 
     def fetch_companies(self):
-        # We use a separate limit for Gupy if needed, but here we respect COMPANY_LIMIT
-        url = f'https://portal.api.gupy.io/api/company?limit={COMPANY_LIMIT}'
+        # We use a separate limit for Gupy if needed, but here we respect self.limit
+        url = f'https://portal.api.gupy.io/api/company?limit={self.limit}'
         try:
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
@@ -81,6 +84,7 @@ class InhireScraper(Scraper):
     def __init__(self, session):
         super().__init__(session)
         self.source_name = "inhire"
+        self.limit = INHIRE_LIMIT
 
     def fetch_companies(self):
         url = "https://carreira.inhire.com.br/carreiras/"
@@ -103,8 +107,8 @@ class InhireScraper(Scraper):
                         'url': href
                     })
             companies.insert(0, {'tenant': 'yandeh', 'name': 'Yandeh', 'url': 'https://carreira.inhire.com.br/carreiras/yandeh/'})
-            # For Inhire, we fetch all by default as they are fewer than Gupy
-            limited_companies = companies[:COMPANY_LIMIT]
+            # For Inhire, we fetch based on INHIRE_LIMIT
+            limited_companies = companies[:self.limit]
             print(f"DEBUG: Limited to {len(limited_companies)} companies")
             return limited_companies
         except Exception as e:
