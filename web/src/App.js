@@ -120,6 +120,18 @@ function App() {
     setPage(0);
   };
 
+  const handleResetFilters = () => {
+    setSearch('');
+    setCompanyId('');
+    setCity('');
+    setState('');
+    setDepartment('');
+    setWorkplaceType('');
+    setJobType('');
+    setSource('');
+    setPage(0);
+  };
+
   const handleJobClick = (job) => {
     setSelectedJob(job);
   };
@@ -158,6 +170,7 @@ function App() {
               source
             }}
             onChange={handleFilterChange}
+            onReset={handleResetFilters}
           />
         )}
 

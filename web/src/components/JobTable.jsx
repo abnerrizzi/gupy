@@ -51,17 +51,18 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
             <th>Empresa</th>
             <th>Local</th>
             <th>Departamento</th>
-            <th>Tipo / Fonte</th>
+            <th>Tipo</th>
+            <th>Fonte</th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan="5" className="loading">Carregando...</td>
+              <td colSpan="6" className="loading">Carregando...</td>
             </tr>
           ) : jobs.length === 0 ? (
             <tr>
-              <td colSpan="5" className="loading">Nenhuma vaga encontrada</td>
+              <td colSpan="6" className="loading">Nenhuma vaga encontrada</td>
             </tr>
           ) : (
             jobs.map((job) => (
@@ -77,18 +78,18 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
                 </td>
                 <td>{job.job_department}</td>
                 <td>
-                  <div>
-                    <span className={`type-${job.workplace_type}`}>
-                      {formatWorkplaceType(job.workplace_type)}
-                    </span>
-                    {' / '}
-                    <span className={`type-${job.job_type}`}>
-                      {formatJobType(job.job_type)}
-                    </span>
-                  </div>
-                  <div className="job-source">
-                    <small>Fonte: <strong>{job.source}</strong></small>
-                  </div>
+                  <span className={`type-${job.workplace_type}`}>
+                    {formatWorkplaceType(job.workplace_type)}
+                  </span>
+                  {' / '}
+                  <span className={`type-${job.job_type}`}>
+                    {formatJobType(job.job_type)}
+                  </span>
+                </td>
+                <td>
+                  <span className={`source-badge source-${job.source}`}>
+                    {job.source.toUpperCase()}
+                  </span>
                 </td>
               </tr>
             ))

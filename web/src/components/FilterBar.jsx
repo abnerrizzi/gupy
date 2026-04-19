@@ -1,6 +1,6 @@
 import React from 'react';
 
-function FilterBar({ companies, filters, selected, onChange }) {
+function FilterBar({ companies, filters, selected, onChange, onReset }) {
   const handleChange = (key) => (e) => {
     onChange(key, e.target.value);
   };
@@ -69,6 +69,10 @@ function FilterBar({ companies, filters, selected, onChange }) {
           </option>
         ))}
       </select>
+
+      <button className="reset-button" onClick={onReset}>
+        Limpar Filtros
+      </button>
     </div>
   );
 }
