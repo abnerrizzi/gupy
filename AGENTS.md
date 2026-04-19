@@ -1,72 +1,212 @@
-# AGENTS.md - Development Guidelines for Agentic Coding
+# AGENTS.md - Development Guidelines
 
-This file contains critical guidelines for AI agents working in this repository.
+This file contains guidelines for agentic coding agents working in this repository.
 
 ## Project Overview
 
-A job scraping and visualization system for the Gupy platform.
-- `app/main.py`: Scraper using requests, BeautifulSoup, and ThreadPoolExecutor.
-- `api/app.py`: Flask REST API serving job data from SQLite.
-- `web/`: React frontend for job search and filtering.
-- `run_scrap.sh`: Orchestrates scraping, CSV generation, and SQLite initialization.
+This repository contains a job scraping system with three main components:
 
-## Build, Lint, and Test Commands
+- `app/main.py` - Python scraper for Gupy API
+- `api/` - Flask REST API serving job data
+- `web/` - React web UI for searching/filtering jobs
+- `run_scrap.sh` - Shell script to run the full scraping pipeline
 
-### Development Pipeline
-- **Full Scrape**: `./run_scrap.sh out` (creates `out/gupy.db`)
-- **Scraper Only**: `python3 app/main.py <timestamp> <folder> <db_name>`
-- **Database Init**: `./create_sqlite_from_csv.sh <timestamp> <folder>`
+## Architecture
 
-### Docker Commands
-- **Build All**: `docker-compose build`
-- **Start Services**: `docker-compose up -d` (starts API at :5000 and Web at :8080)
-- **Run Scraper in Container**: `docker-compose run --rm scraper`
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Scraper    │────▶│   SQLite     │◀────│     API      │
+│  (Python)    │     │   Database   │     │   (Flask)    │
+└──────────────┘     └──────────────┘     └──────────────┘
+                                                  │
+                                                  ▼
+                                         ┌──────────────┐
+                                         │     Web      │
+                                         │   (React)    │
+                                         └──────────────┘
+```
 
-### Linting and Verification
-- **Python Lint**: `flake8 app/main.py api/app.py`
-- **Static Check**: `python3 -m py_compile app/main.py api/app.py`
-- **React Lint**: `cd web && npm run lint` (if configured)
+## Build/Lint/Test Commands
 
-### Testing Strategy
-Since there are no unit tests, verify changes manually:
-1. **Scraper**: Check `out/gupy.db` for new records.
-   `sqlite3 out/gupy.db "SELECT COUNT(*) FROM jobs;"`
-2. **API**: `curl http://localhost:5000/api/jobs?limit=1`
-3. **Frontend**: Check browser console for fetch errors.
+### Running Locally
+
+```bash
+# Run full pipeline (scraper + SQLite)
+./run_scrap.sh out/
+
+# Run only scraper
+python3 app/main.py "<timestamp>" "<folder>"
+
+# Create SQLite from CSV
+./create_sqlite_from_csv.sh "<timestamp>" "<folder>"
+```
+
+### Docker Compose (Recommended)
+
+```bash
+# Build all services
+docker-compose build
+
+# Start API and Web (no scraper)
+docker-compose up -d
+
+# Run scraper manually (only when needed)
+docker-compose run --rm scraper
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GUPY_COMPANY_LIMIT` | `3` | Number of companies to fetch |
+| `GUPY_THREADS` | `16` | Parallel worker threads |
+| `GUPY_OUTPUT_FOLDER` | CLI arg | Output directory |
+
+### Linting
+
+```bash
+# Python syntax check
+python3 -m py_compile app/main.py api/app.py
+
+# With flake8
+pip install flake8
+flake8 app/main.py api/app.py
+```
+
+### Testing
+
+Manual testing by running the scraper and verifying:
+
+```bash
+# Verify CSV output
+ls -la out/
+
+# Verify SQLite data
+sqlite3 out/*.db ".tables"
+sqlite3 out/*.db "SELECT COUNT(*) FROM jobs;"
+
+# Test API
+curl http://localhost:5000/api/filters
+
+# Test Web UI
+curl http://localhost:8080/api/filters
+```
 
 ## Code Style Guidelines
 
-### Python (Scraper & API)
-- **Formatting**: 4 spaces, snake_case for functions/vars, UPPER_SNAKE_CASE for constants.
-- **Imports**: 
-  1. Standard library (`os`, `sys`, `json`)
-  2. Third-party (`requests`, `flask`)
-  3. Local modules
-- **Environment Variables**: Use `os.environ.get()` with sensible defaults.
-  - `GUPY_COMPANY_LIMIT`: Total companies to fetch.
-  - `GUPY_THREADS`: Concurrency level.
-- **Error Handling**: Use `try...except` blocks in threads to prevent pipeline crashes. Log errors with `print()` or proper logging.
-- **SQLite**: Use thread locks (`threading.Lock`) when writing to SQLite from multiple threads.
+### Python (app/main.py, api/app.py)
 
-### React (Web)
-- **Architecture**: Functional components with hooks (`useState`, `useEffect`).
-- **State Management**: Local state; use `URLSearchParams` for API queries.
-- **Styling**: Component-based CSS or standard CSS.
-- **Naming**: PascalCase for components, camelCase for functions/variables.
+- Use f-strings for string interpolation
+- 4 spaces for indentation
+- snake_case for functions/variables
+- UPPER_SNAKE_CASE for constants
+- Type hints for function signatures
+
+```python
+import os
+import sys
+import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def fetch_and_process_job_data(company: dict) -> tuple:
+    company_id: str = company.get('companyId', '')
+    return company_data, job_data_list
+```
+
+### React (web/src/)
+
+- Functional components with hooks
+- PascalCase for component names
+- CSS modules or styled-components
+
+```jsx
+function JobSearch({ value, onChange }) {
+  return <input value={value} onChange={onChange} />;
+}
+```
 
 ### Shell Scripts
-- **Portability**: Use `#!/bin/sh`.
-- **Paths**: Normalize paths (remove trailing slashes) using `${var%/}`.
-- **Safety**: Check for executable bits and file existence before running.
+
+- Use `#!/bin/sh` for portability
+- Check file existence and executability
+- Proper variable quoting
+
+```bash
+if [ ! -x "app/main.py" ]; then
+  echo "Error: app/main.py not found"
+  exit 1
+fi
+folder="${folder%/}/"
+```
+
+### Imports Order
+
+1. Standard library
+2. Third-party packages
+3. Local modules
 
 ## Git Conventions
-- **Commits**: Concise, descriptive messages (e.g., `feat: ...`, `fix: ...`).
-- **Branching**: `feature/*` for new work.
 
-## Common Agent Tasks
-- **Adding Fields**: 
-  1. Update `app/main.py` extraction logic.
-  2. Update `sqlite-init.sql` schema.
-  3. Update `api/app.py` mapping/query if necessary.
-  4. Update `web/src/App.js` and components to display the field.
-- **Fixing Paths**: Ensure `folder` variable in scripts does not have a trailing slash to avoid double-slashes in logs/file paths.
+- Branch naming: `feature/*`, `dev`, `main`
+- CI runs on push to `main`, `dev`, `feature/*`
+- No pre-commit hooks
+- Use the `auto-commit` skill (`.skills/auto-commit.md`) for automatic commits
+
+## File Organization
+
+```
+/home/abner.smartdb/src/gupy/
+├── app/              # Scraper
+│   ├── main.py
+│   └── requirements.txt
+├── api/              # Flask API
+│   ├── app.py
+│   ├── Dockerfile
+│   └── requirements.txt
+├── web/              # React UI
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   ├── Dockerfile
+│   └── nginx.conf
+├── docker-compose.yml
+├── run_scrap.sh
+└── out/             # Output (created at runtime)
+```
+
+## Common Tasks
+
+### Adding a New Field
+
+1. `app/main.py`: Add field extraction
+2. `sqlite-init.sql`: Add column
+3. `api/app.py`: Update endpoint if needed
+4. `web/src/App.js`: Add to UI if needed
+
+### Changing API Configuration
+
+```bash
+# Via environment
+GUPY_COMPANY_LIMIT=10 docker-compose run --rm scraper
+
+# Via .env file
+cp .env_sample .env
+# Edit .env then:
+docker-compose --env-file .env up -d
+```
+
+### Rebuilding After Code Changes
+
+```bash
+# Rebuild specific service
+docker-compose build web
+docker-compose up -d --force-recreate web
+```
+
+## CI/CD
+
+GitHub Actions (`.github/workflows/ci.yml`):
+1. Builds scraper, API, and web images
+2. Pushes to GHCR
+3. Runs scraper in CI
+4. Uploads SQLite as artifact
