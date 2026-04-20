@@ -1,7 +1,6 @@
 FROM python:3.12-alpine
 
-RUN apk add --no-cache sqlite && \
-    adduser -D appuser
+RUN apk add --no-cache sqlite su-exec
 
 WORKDIR /app
 
@@ -11,9 +10,8 @@ RUN pip install --no-cache-dir -r app/requirements.txt
 COPY app/ app/
 COPY *.sh *.sql ./
 
-RUN chown -R appuser:appuser /app && \
-    chmod +x *.sh
+RUN chmod +x *.sh
 
-USER appuser
+ENTRYPOINT ["./docker-entrypoint.sh"]
 
 CMD ["./run_scrap.sh", "out"]

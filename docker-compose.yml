@@ -3,7 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      - PUID=${UID:-1000}
+      - PGID=${GID:-1000}
     env_file: .env
     command: ["./run_scrap.sh", "out"]
     volumes:
@@ -15,6 +17,9 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
+    environment:
+      - PUID=${UID:-1000}
+      - PGID=${GID:-1000}
     env_file: .env
     volumes:
       - ./out:/app/out
