@@ -2,26 +2,39 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
-function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPageChange }) {
+function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrder, onJobClick, onPageChange, onSort }) {
   if (loading && jobs.length === 0) {
     return <div className="loading">Carregando vagas...</div>;
   }
 
-  if (!loading && jobs.length === 0) {
-    return <div className="no-jobs">Nenhuma vaga encontrada para os filtros selecionados.</div>;
-  }
+  const renderSortIcon = (key) => {
+    if (sortKey !== key) return null;
+    return sortOrder === 'asc' ? ' ↑' : ' ↓';
+  };
 
   return (
     <div className="job-table-container">
       <table className="job-table">
         <thead>
           <tr>
-            <th>Título</th>
-            <th>Empresa</th>
-            <th>Localização</th>
-            <th>Tipo</th>
-            <th>Modalidade</th>
-            <th>Fonte</th>
+            <th onClick={() => onSort('job_title')} style={{ cursor: 'pointer' }}>
+              Título{renderSortIcon('job_title')}
+            </th>
+            <th onClick={() => onSort('company_name')} style={{ cursor: 'pointer' }}>
+              Empresa{renderSortIcon('company_name')}
+            </th>
+            <th onClick={() => onSort('workplace_city')} style={{ cursor: 'pointer' }}>
+              Localização{renderSortIcon('workplace_city')}
+            </th>
+            <th onClick={() => onSort('job_type')} style={{ cursor: 'pointer' }}>
+              Tipo{renderSortIcon('job_type')}
+            </th>
+            <th onClick={() => onSort('workplace_type')} style={{ cursor: 'pointer' }}>
+              Modalidade{renderSortIcon('workplace_type')}
+            </th>
+            <th onClick={() => onSort('source')} style={{ cursor: 'pointer' }}>
+              Fonte{renderSortIcon('source')}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -90,8 +103,11 @@ JobTable.propTypes = {
   loading: PropTypes.bool.isRequired,
   page: PropTypes.number.isRequired,
   totalPages: PropTypes.number.isRequired,
+  sortKey: PropTypes.string.isRequired,
+  sortOrder: PropTypes.string.isRequired,
   onJobClick: PropTypes.func.isRequired,
   onPageChange: PropTypes.func.isRequired,
+  onSort: PropTypes.func.isRequired,
 };
 
 export default JobTable;

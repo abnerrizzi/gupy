@@ -101,7 +101,24 @@ def build_filters(args):
     if where_clauses:
         where_str = " AND " + " AND ".join(where_clauses)
 
-    return where_str, params
+    # Build ORDER BY clause
+    sort_mapping = {
+        'job_title': 'j.title',
+        'company_name': 'c.name',
+        'workplace_city': 'j.workplace_city',
+        'job_type': 'j.type',
+        'workplace_type': 'j.workplace_type',
+        'source': 'j.source'
+    }
+    
+    sort_key = args.get('sort', 'job_title')
+    sort_order = args.get('order', 'asc').lower()
+    
+    db_col = sort_mapping.get(sort_key, 'j.title')
+    direction = 'ASC' if sort_order == 'asc' else 'DESC'
+    order_str = f"ORDER BY {db_col} {direction}"
+
+    return where_str, order_str, params
 
 
 def safe_int(val, default, min_val=None, max_val=None):
@@ -146,7 +163,7 @@ def get_jobs():
     db = get_db()
     cursor = db.cursor()
 
-    where_str, params = build_filters(request.args)
+    where_str, order_str, params = build_filters(request.args)
 
     query = f"""
         SELECT 
@@ -169,7 +186,7 @@ def get_jobs():
     cursor.execute(count_query, params)
     total = cursor.fetchone()[0]
 
-    query += " ORDER BY j.title LIMIT ? OFFSET ?"
+    query += f" {order_str} LIMIT ? OFFSET ?"
     query_params = params + [limit, offset]
 
     cursor.execute(query, query_params)
