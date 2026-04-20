@@ -5,12 +5,14 @@ import JobTable from './components/JobTable';
 import JobDetails from './components/JobDetails';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const PAGE_SIZE = 100;
 
 function App() {
   const [jobs, setJobs] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [filters, setFilters] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -44,25 +46,30 @@ function App() {
   const fetchFilters = async () => {
     try {
       const res = await fetch(`${API_URL}/filters`);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       setFilters(data);
     } catch (err) {
       console.error('Failed to fetch filters:', err);
+      setError('Falha ao carregar filtros. Verifique se a API está online.');
     }
   };
 
   const fetchCompanies = async () => {
     try {
       const res = await fetch(`${API_URL}/companies`);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       setCompanies(data.companies);
     } catch (err) {
       console.error('Failed to fetch companies:', err);
+      setError('Falha ao carregar lista de empresas.');
     }
   };
 
   const fetchJobs = async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (searchDebounced) params.append('search', searchDebounced);
@@ -73,14 +80,17 @@ function App() {
       if (workplaceType) params.append('workplace_type', workplaceType);
       if (jobType) params.append('type', jobType);
       if (source) params.append('source', source);
-      params.append('offset', page * 100);
+      params.append('offset', page * PAGE_SIZE);
+      params.append('limit', PAGE_SIZE);
 
       const res = await fetch(`${API_URL}/jobs?${params}`);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       setJobs(data.jobs);
       setTotal(data.total);
     } catch (err) {
       console.error('Failed to fetch jobs:', err);
+      setError('Erro ao buscar vagas. Tente novamente mais tarde.');
     } finally {
       setLoading(false);
     }
@@ -144,7 +154,7 @@ function App() {
     setPage(newPage);
   };
 
-  const totalPages = Math.ceil(total / 100);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="App">
@@ -154,6 +164,15 @@ function App() {
       </header>
 
       <main className="App-main">
+        {error && (
+          <div className="App-error">
+            {error}
+            <button onClick={() => { setError(null); fetchFilters(); fetchCompanies(); fetchJobs(); }}>
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
         <JobSearch value={search} onChange={handleSearch} />
 
         {filters && (

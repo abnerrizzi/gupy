@@ -235,3 +235,30 @@ body {
 .JobDetails-apply:hover {
   background-color: #0056b3;
 }
+
+.App-error {
+  background-color: #fff3f3;
+  border: 1px solid #ffcdd2;
+  color: #c62828;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.App-error button {
+  background-color: #c62828;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.App-error button:hover {
+  opacity: 0.9;
+}
