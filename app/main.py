@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 GUPY_LIMIT = int(os.environ.get('GUPY_COMPANY_LIMIT', 30))
 INHIRE_LIMIT = int(os.environ.get('INHIRE_COMPANY_LIMIT', 10))
 THREADS = int(os.environ.get('GUPY_THREADS', 16))
+GUPY_TIMEOUT = 30
+INHIRE_TIMEOUT = 15
+RATE_LIMIT_SLEEP = 2
 
 class Scraper:
     def __init__(self, session):
@@ -49,7 +52,7 @@ class GupyScraper(Scraper):
         # We use a separate limit for Gupy if needed, but here we respect self.limit
         url = f'https://portal.api.gupy.io/api/company?limit={self.limit}'
         try:
-            response = self.session.get(url, timeout=30)
+            response = self.session.get(url, timeout=GUPY_TIMEOUT)
             response.raise_for_status()
             return response.json().get('data', [])
         except Exception as e:
@@ -67,7 +70,7 @@ class GupyScraper(Scraper):
         
         if company_career_page_url:
             try:
-                job_response = self.session.get(company_career_page_url, timeout=15)
+                job_response = self.session.get(company_career_page_url, timeout=GUPY_TIMEOUT)
                 job_response.raise_for_status()
                 soup = BeautifulSoup(job_response.content, 'html.parser')
                 script_tag = soup.find('script', {'id': '__NEXT_DATA__'})            
@@ -102,7 +105,7 @@ class InhireScraper(Scraper):
     def fetch_companies(self):
         url = "https://carreira.inhire.com.br/carreiras/"
         try:
-            response = self.session.get(url, timeout=30)
+            response = self.session.get(url, timeout=INHIRE_TIMEOUT)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'html.parser')
             links = soup.select('li.page_item a')
@@ -136,7 +139,7 @@ class InhireScraper(Scraper):
         job_tuples = []
         
         # Small delay to avoid aggressive rate limiting
-        time.sleep(2)
+        time.sleep(RATE_LIMIT_SLEEP)
 
         # Try to find the actual inhire.app URL in the WP page
         try:
@@ -146,7 +149,7 @@ class InhireScraper(Scraper):
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                 'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
             }
-            resp = self.session.get(wp_url, headers=wp_headers, timeout=10)
+            resp = self.session.get(wp_url, headers=wp_headers, timeout=INHIRE_TIMEOUT)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.content, 'html.parser')
                 # Look for potential JSON data in scripts
@@ -188,7 +191,7 @@ class InhireScraper(Scraper):
                 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
                 'x-tenant': tenant
             }
-            response = self.session.get(api_url, headers=headers, timeout=15)
+            response = self.session.get(api_url, headers=headers, timeout=INHIRE_TIMEOUT)
             if response.status_code == 200:
                 data = response.json()
                 logger.debug(f"API response for {tenant} keys: {list(data.keys())}")
