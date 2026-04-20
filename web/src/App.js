@@ -40,7 +40,9 @@ function App() {
   }, [search]);
 
   useEffect(() => {
-    fetchJobs();
+    const controller = new AbortController();
+    fetchJobs(controller.signal);
+    return () => controller.abort();
   }, [searchDebounced, companyId, city, state, department, workplaceType, jobType, source, page]);
 
   const fetchFilters = async () => {
@@ -67,7 +69,7 @@ function App() {
     }
   };
 
-  const fetchJobs = async () => {
+  const fetchJobs = async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -83,12 +85,13 @@ function App() {
       params.append('offset', page * PAGE_SIZE);
       params.append('limit', PAGE_SIZE);
 
-      const res = await fetch(`${API_URL}/jobs?${params}`);
+      const res = await fetch(`${API_URL}/jobs?${params}`, { signal });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       setJobs(data.jobs);
       setTotal(data.total);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       console.error('Failed to fetch jobs:', err);
       setError('Erro ao buscar vagas. Tente novamente mais tarde.');
     } finally {
