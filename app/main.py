@@ -12,9 +12,9 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 # Constants
-JOBHUBMINE_LIMIT = int(os.environ.get('JOBHUBMINE_COMPANY_LIMIT', 30))
+GUPY_LIMIT = int(os.environ.get('GUPY_COMPANY_LIMIT', 30))
 INHIRE_LIMIT = int(os.environ.get('INHIRE_COMPANY_LIMIT', 10))
-THREADS = int(os.environ.get('JOBHUBMINE_THREADS', 16))
+THREADS = int(os.environ.get('GUPY_THREADS', 16))
 
 class Scraper:
     def __init__(self, session):
@@ -32,7 +32,7 @@ class GupyScraper(Scraper):
     def __init__(self, session):
         super().__init__(session)
         self.source_name = "gupy"
-        self.limit = JOBHUBMINE_LIMIT
+        self.limit = GUPY_LIMIT
 
     def fetch_companies(self):
         # We use a separate limit for Gupy if needed, but here we respect self.limit
@@ -280,7 +280,7 @@ if __name__ == "__main__":
     db_path = os.path.join(folder, db_file)
 
     # Debug env vars
-    print(f"JOBHUBMINE_ENABLED: {os.environ.get('JOBHUBMINE_ENABLED')}")
+    print(f"GUPY_ENABLED: {os.environ.get('GUPY_ENABLED')}")
     print(f"INHIRE_ENABLED: {os.environ.get('INHIRE_ENABLED')}")
 
     os.makedirs(folder, exist_ok=True)
@@ -288,11 +288,11 @@ if __name__ == "__main__":
     
     session = get_http_session()
     
-    jobhubmine_enabled = os.environ.get('JOBHUBMINE_ENABLED', 'true').lower() == 'true'
+    gupy_enabled = os.environ.get('GUPY_ENABLED', 'true').lower() == 'true'
     inhire_enabled = os.environ.get('INHIRE_ENABLED', 'true').lower() == 'true'
 
     scrapers = []
-    if jobhubmine_enabled:
+    if gupy_enabled:
         scrapers.append(GupyScraper(session))
     if inhire_enabled:
         scrapers.append(InhireScraper(session))
