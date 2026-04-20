@@ -6,6 +6,10 @@ services:
     environment:
       - PUID=${UID:-1000}
       - PGID=${GID:-1000}
+      - LINKEDIN_TIME_POSTED=${LINKEDIN_TIME_POSTED:-}
+      - LINKEDIN_WORKPLACE_TYPE=${LINKEDIN_WORKPLACE_TYPE:-}
+      - LINKEDIN_EXPERIENCE=${LINKEDIN_EXPERIENCE:-}
+      - LINKEDIN_JOB_TYPE=${LINKEDIN_JOB_TYPE:-}
     env_file: .env
     command: ["./run_scrap.sh", "out"]
     volumes:

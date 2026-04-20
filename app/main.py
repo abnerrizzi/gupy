@@ -31,6 +31,10 @@ LINKEDIN_THREADS = int(os.environ.get('LINKEDIN_THREADS', 2))
 LINKEDIN_LIMIT = int(os.environ.get('LINKEDIN_COMPANY_LIMIT', 100)) # Number of jobs to fetch
 LINKEDIN_KEYWORDS = os.environ.get('LINKEDIN_KEYWORDS', 'Software Engineer')
 LINKEDIN_LOCATION = os.environ.get('LINKEDIN_LOCATION', 'Brazil')
+LINKEDIN_TIME_POSTED = os.environ.get('LINKEDIN_TIME_POSTED') # e.g., r86400 (24h)
+LINKEDIN_WORKPLACE_TYPE = os.environ.get('LINKEDIN_WORKPLACE_TYPE') # e.g., 1,2,3
+LINKEDIN_EXPERIENCE = os.environ.get('LINKEDIN_EXPERIENCE') # e.g., 1,2,3
+LINKEDIN_JOB_TYPE = os.environ.get('LINKEDIN_JOB_TYPE') # e.g., F,P,C
 GUPY_TIMEOUT = 30
 INHIRE_TIMEOUT = 15
 LINKEDIN_TIMEOUT = 30
@@ -257,6 +261,10 @@ class LinkedInScraper(Scraper):
         self.threads = LINKEDIN_THREADS
         self.keywords = LINKEDIN_KEYWORDS
         self.location = LINKEDIN_LOCATION
+        self.f_TPR = LINKEDIN_TIME_POSTED
+        self.f_WT = LINKEDIN_WORKPLACE_TYPE
+        self.f_E = LINKEDIN_EXPERIENCE
+        self.f_JT = LINKEDIN_JOB_TYPE
 
     def fetch_companies(self):
         # LinkedIn doesn't have a company list we iterate over, we search by keywords.
@@ -290,6 +298,12 @@ class LinkedInScraper(Scraper):
                 'location': self.location,
                 'start': start,
             }
+
+            # Apply advanced filters if provided
+            if self.f_TPR: params['f_TPR'] = self.f_TPR
+            if self.f_WT: params['f_WT'] = self.f_WT
+            if self.f_E: params['f_E'] = self.f_E
+            if self.f_JT: params['f_JT'] = self.f_JT
             
             try:
                 logger.info(f"Fetching LinkedIn jobs starting at {start}...")
