@@ -16,6 +16,8 @@ function App() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
+  const [sortKey, setSortKey] = useState('job_title');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   const [search, setSearch] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
@@ -43,7 +45,7 @@ function App() {
     const controller = new AbortController();
     fetchJobs(controller.signal);
     return () => controller.abort();
-  }, [searchDebounced, companyId, city, state, department, workplaceType, jobType, source, page]);
+  }, [searchDebounced, companyId, city, state, department, workplaceType, jobType, source, page, sortKey, sortOrder]);
 
   const fetchFilters = async () => {
     try {
@@ -82,6 +84,8 @@ function App() {
       if (workplaceType) params.append('workplaceType', workplaceType);
       if (jobType) params.append('jobType', jobType);
       if (source) params.append('source', source);
+      params.append('sort', sortKey);
+      params.append('order', sortOrder);
       params.append('offset', page * PAGE_SIZE);
       params.append('limit', PAGE_SIZE);
 
@@ -157,6 +161,16 @@ function App() {
     setPage(newPage);
   };
 
+  const handleSort = (key) => {
+    if (key === sortKey) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortOrder('asc');
+    }
+    setPage(0);
+  };
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
@@ -202,8 +216,11 @@ function App() {
           loading={loading}
           page={page}
           totalPages={totalPages}
+          sortKey={sortKey}
+          sortOrder={sortOrder}
           onJobClick={handleJobClick}
           onPageChange={handlePageChange}
+          onSort={handleSort}
         />
 
         {selectedJob && (
