@@ -197,6 +197,26 @@ body {
   color: #9d174d;
 }
 
+.tag-workplace-onsite {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.tag-workplace-remote {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.tag-workplace-hybrid {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.tag-workplace-na {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
 /* Pagination */
 .pagination {
   display: flex;
