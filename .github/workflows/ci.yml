@@ -197,6 +197,8 @@ jobs:
 
       - name: Run scraper with volume mount
         run: |
+          mkdir -p "${{ github.workspace }}/out"
+          chmod 777 "${{ github.workspace }}/out"
           docker pull ${{ env.registry }}/scraper:sha-${{ github.sha }}
           docker run --rm -v "${{ github.workspace }}/out:/app/out" \
             ${{ env.registry }}/scraper:sha-${{ github.sha }}
