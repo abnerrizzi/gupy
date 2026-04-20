@@ -1,6 +1,7 @@
-FROM python:3.9-alpine
+FROM python:3.12-alpine
 
-RUN apk add --no-cache sqlite
+RUN apk add --no-cache sqlite && \
+    adduser -D appuser
 
 WORKDIR /app
 
@@ -10,4 +11,9 @@ RUN pip install --no-cache-dir -r app/requirements.txt
 COPY app/ app/
 COPY *.sh *.sql ./
 
-CMD ["/app/run_scrap.sh", "out"]
+RUN chown -R appuser:appuser /app && \
+    chmod +x *.sh
+
+USER appuser
+
+CMD ["./run_scrap.sh", "out"]
