@@ -1,10 +1,10 @@
 import os
 import sys
+import re
 import requests
 import json
 import sqlite3
 import tqdm
-import threading
 import time
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -277,9 +277,14 @@ if __name__ == "__main__":
     ts = sys.argv[1]
     folder = sys.argv[2]
     db_file = sys.argv[3]
+
+    # Validate timestamp is numeric only (prevents SQL injection via table names)
+    if not re.match(r'^[0-9]+$', ts):
+        print(f"Error: timestamp must be numeric only, got: {ts}")
+        sys.exit(1)
+
     db_path = os.path.join(folder, db_file)
 
-    # Debug env vars
     print(f"GUPY_ENABLED: {os.environ.get('GUPY_ENABLED')}")
     print(f"INHIRE_ENABLED: {os.environ.get('INHIRE_ENABLED')}")
 

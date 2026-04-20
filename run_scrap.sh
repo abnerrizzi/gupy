@@ -3,12 +3,22 @@
 ts=$(date +%Y%m%d%H%M%S)
 folder=${1:-out}
 
+# Validate timestamp is numeric only (prevent SQL injection via table names)
+case "$ts" in
+  *[!0-9]*) echo "Error: timestamp must be numeric, got: $ts"; exit 1 ;;
+esac
+
 # Ensure folder does NOT end with a slash and create it 
 folder="${folder%/}"
 mkdir -p "$folder"
 db_file="jobhubmine.db"
 
-# Check if `app/main.py` exists and is executable
+# Pre-flight checks: verify required files exist before using them
+if [ ! -f "sqlite-init.sql" ]; then
+  echo "Error: sqlite-init.sql not found"
+  exit 1
+fi
+
 if [ ! -x "app/main.py" ]; then
   echo "Error: app/main.py not found or not executable"
   exit 1
@@ -33,12 +43,6 @@ if [ ! -f "${folder}/${db_file}" ]; then
   exit 1
 fi
 
-# Check if sqlite-init.sql exists
-if [ ! -f "sqlite-init.sql" ]; then
-  echo "Error: sqlite-init.sql not found"
-  exit 1
-fi
-
 echo "Applying database schema and creating views..."
 # Apply the SQL initialization script (Liquibase-like approach) 
 temp_sqlfile="$folder/${ts}-sqlite-init.sql"
@@ -53,4 +57,4 @@ fi
 
 # rm -f "$temp_sqlfile"
 echo "Job scraping completed successfully!"
-echo ${temp_sqlfile}
+echo "${temp_sqlfile}"
