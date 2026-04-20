@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS jobs_all (
     workplace_state TEXT,
     workplace_type TEXT,
     source TEXT,
+    description TEXT,
+    seniority TEXT,
     run_ts TEXT,
     PRIMARY KEY (id, run_ts)
 );
@@ -53,7 +55,9 @@ CREATE TABLE IF NOT EXISTS jobs_${ts} (
     workplace_city TEXT,
     workplace_state TEXT,
     workplace_type TEXT,
-    source TEXT
+    source TEXT,
+    description TEXT,
+    seniority TEXT
 );
 
 CREATE TABLE IF NOT EXISTS companies_${ts} (
@@ -123,7 +127,9 @@ CREATE VIEW job_details AS
         j.workplace_type AS workplace_type,
         j.workplace_city,
         j.workplace_state,
-        j.source
+        j.source,
+        j.description,
+        j.seniority
     FROM
         jobs j
     LEFT JOIN

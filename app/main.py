@@ -101,7 +101,8 @@ class GupyScraper(Scraper):
                         workplace_state = workplace.get('state', 'N/A')
                         workplace_type = job.get('workplace', {}).get('workplaceType', 'N/A')
                         
-                        job_tuples.append((job_id, company_id, job_title, job_type, department, workplace_city, workplace_state, workplace_type, self.source_name))
+                        # Add N/A for description and seniority to keep tuple size consistent
+                        job_tuples.append((job_id, company_id, job_title, job_type, department, workplace_city, workplace_state, workplace_type, self.source_name, "N/A", "N/A"))
             
             except Exception as e:
                 logger.error(f"Error processing Gupy jobs for company {company_id}: {e}")
@@ -242,7 +243,8 @@ class InhireScraper(Scraper):
 
                         workplace_type = job.get('workplaceType', job.get('workMode', 'N/A'))
                         
-                        job_tuples.append((job_id, tenant, job_title, job_type, department, workplace_city, workplace_state, workplace_type, self.source_name))
+                        # Add N/A for description and seniority to keep tuple size consistent
+                        job_tuples.append((job_id, tenant, job_title, job_type, department, workplace_city, workplace_state, workplace_type, self.source_name, "N/A", "N/A"))
             elif response.status_code == 403:
                 logger.warning(f"Inhire API returned 403 for tenant {tenant}. Skipping.")
             else:
@@ -341,21 +343,56 @@ class LinkedInScraper(Scraper):
                         job_location = location_tag.get_text(strip=True) if location_tag else "N/A"
                         job_link = link_tag.get('href', '').split('?')[0]
                         
-                        # Extract Job ID from link (e.g., .../view/123456789)
-                        job_id_match = re.search(r'/view/(\d+)', job_link)
-                        job_id = job_id_match.group(1) if job_id_match else f"li_{hash(job_link)}"
-                        
-                        # Parse location
-                        parts = [p.strip() for p in job_location.split(',')]
-                        city = parts[0] if len(parts) > 0 else "N/A"
-                        state = parts[1] if len(parts) > 1 else "N/A"
-                        
                         # Default values for fields not easily available in the guest list
                         job_type = "N/A"
                         department = "N/A"
                         workplace_type = "N/A" # Could be parsed from title or card details if present
                         
-                        job_tuples.append((job_id, job_company_name, job_title, job_type, department, city, state, workplace_type, self.source_name))
+                        # Extract Job ID from link (e.g., .../view/123456789)
+                        job_id_match = re.search(r'-(\d+)(?:\?|$)', job_link)
+                        job_id = job_id_match.group(1) if job_id_match else f"li_{hash(job_link)}"
+                        
+                        # Fetch deep details
+                        job_description = "N/A"
+                        job_seniority = "N/A"
+                        
+                        if job_id_match:
+                            try:
+                                detail_url = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
+                                detail_resp = self.session.get(detail_url, headers=headers, timeout=LINKEDIN_TIMEOUT)
+                                if detail_resp.status_code == 200:
+                                    detail_soup = BeautifulSoup(detail_resp.content, 'html.parser')
+                                    
+                                    # Extract description
+                                    desc_div = detail_soup.find('div', class_='show-more-less-html__markup')
+                                    if desc_div:
+                                        job_description = desc_div.get_text(separator='\n', strip=True)
+                                    
+                                    # Extract criteria (Seniority, Employment Type, etc.)
+                                    criteria_list = detail_soup.find('ul', class_='description__job-criteria-list')
+                                    if criteria_list:
+                                        for li in criteria_list.find_all('li'):
+                                            header = li.find('h3')
+                                            if header:
+                                                header_text = header.get_text(strip=True).lower()
+                                                value = li.get_text(strip=True).replace(header.get_text(strip=True), '').strip()
+                                                
+                                                if 'seniority level' in header_text:
+                                                    job_seniority = value
+                                                elif 'employment type' in header_text:
+                                                    job_type = value
+                                                elif 'job function' in header_text:
+                                                    department = value
+                                                    
+                            except Exception as e:
+                                logger.error(f"Error fetching LinkedIn job details for {job_id}: {e}")
+
+                        # Parse location
+                        parts = [p.strip() for p in job_location.split(',')]
+                        city = parts[0] if len(parts) > 0 else "N/A"
+                        state = parts[1] if len(parts) > 1 else "N/A"
+                        
+                        job_tuples.append((job_id, job_company_name, job_title, job_type, department, city, state, workplace_type, self.source_name, job_description, job_seniority))
                     
                     except Exception as e:
                         logger.error(f"Error parsing LinkedIn job card: {e}")
@@ -408,7 +445,9 @@ def init_database_tables(db_path, ts):
             workplace_city TEXT,
             workplace_state TEXT,
             workplace_type TEXT,
-            source TEXT
+            source TEXT,
+            description TEXT,
+            seniority TEXT
         )
     """)
     conn.commit()
@@ -487,7 +526,16 @@ if __name__ == "__main__":
     cursor = conn.cursor()
     try:
         cursor.executemany(f"INSERT OR IGNORE INTO companies_{ts} (id, name, logo_url, career_page_url, company_data, source) VALUES (?, ?, ?, ?, ?, ?)", all_companies)
-        cursor.executemany(f"INSERT OR IGNORE INTO jobs_{ts} (id, company_id, title, type, department, workplace_city, workplace_state, workplace_type, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", all_jobs)
+        
+        # Determine columns based on tuple size
+        if all_jobs:
+            first_job = all_jobs[0]
+            logger.info(f"Sample job tuple size: {len(first_job)}")
+            if len(first_job) == 11:
+                 cursor.executemany(f"INSERT OR IGNORE INTO jobs_{ts} (id, company_id, title, type, department, workplace_city, workplace_state, workplace_type, source, description, seniority) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", all_jobs)
+            else:
+                 cursor.executemany(f"INSERT OR IGNORE INTO jobs_{ts} (id, company_id, title, type, department, workplace_city, workplace_state, workplace_type, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", all_jobs)
+             
         conn.commit()
         logger.info("Database commit successful.")
     except Exception as e:
