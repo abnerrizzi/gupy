@@ -1,19 +1,10 @@
 export const formatWorkplaceType = (type) => {
   if (!type) return 'N/A';
-  switch (type.toLowerCase()) {
-    case 'on-site':
-    case 'presencial':
-      return 'Presencial';
-    case 'remote':
-    case 'remoto':
-    case 'home office':
-      return 'Remoto';
-    case 'hybrid':
-    case 'híbrido':
-      return 'Híbrido';
-    default:
-      return type;
-  }
+  const t = type.toLowerCase();
+  if (t === 'on-site' || t === 'presencial') return 'Presencial';
+  if (t === 'remote' || t === 'remoto' || t === 'home office') return 'Remoto';
+  if (t === 'hybrid' || t === 'híbrido') return 'Híbrido';
+  return type;
 };
 
 export const formatJobType = (type) => {
