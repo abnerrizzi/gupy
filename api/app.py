@@ -45,14 +45,57 @@ def build_filters(args):
         'department': ('j.department = ?', None),
         'workplace_type': ('j.workplace_type = ?', None),
         'type': ('j.type = ?', None),
-        'source': ('j.source = ?', None)
+        'source': ('j.source = ?', None),
+        'workplace_type_label': (None, None), # Handled separately
+        'job_type_label': (None, None) # Handled separately
     }
 
     for arg_name, (clause, transform) in filters.items():
+        if clause is None: continue
         value = args.get(arg_name)
         if value:
             where_clauses.append(clause)
             params.append(transform(value) if transform else value)
+
+    # Handle grouped labels for workplace_type
+    wp_label = args.get('workplaceType') # Frontend sends 'workplaceType'
+    if wp_label:
+        if wp_label == 'Presencial':
+            where_clauses.append("LOWER(j.workplace_type) IN ('on-site', 'presencial')")
+        elif wp_label == 'Remoto':
+            where_clauses.append("LOWER(j.workplace_type) IN ('remote', 'remoto', 'home office')")
+        elif wp_label == 'Híbrido':
+            where_clauses.append("LOWER(j.workplace_type) IN ('hybrid', 'híbrido')")
+        else:
+            where_clauses.append("j.workplace_type = ?")
+            params.append(wp_label)
+
+    # Handle grouped labels for job_type
+    jt_label = args.get('jobType') # Frontend sends 'jobType'
+    if jt_label:
+        if jt_label == 'Efetiva':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_effective', 'efetivo', 'full-time')")
+        elif jt_label == 'Banco de Talentos':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_talent_pool', 'banco de talentos')")
+        elif jt_label == 'Estágio':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_internship', 'estágio', 'internship')")
+        elif jt_label == 'Jovem Aprendiz':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_apprentice', 'aprendiz')")
+        elif jt_label == 'Temporário':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_temporary', 'temporário')")
+        elif jt_label == 'Docente':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_lecturer', 'palestrante', 'docente')")
+        elif jt_label == 'PJ':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_legal_entity', 'pj')")
+        elif jt_label == 'Associado':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_associate', 'associado')")
+        elif jt_label == 'Autônomo':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_autonomous', 'autônomo')")
+        elif jt_label == 'Outros':
+            where_clauses.append("(j.type IS NULL OR j.type = '' OR j.type = 'N/A')")
+        else:
+            where_clauses.append("j.type = ?")
+            params.append(jt_label)
 
     where_str = ""
     if where_clauses:
