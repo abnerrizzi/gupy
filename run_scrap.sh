@@ -38,7 +38,8 @@ echo "Starting job scraping..."
 # Phase 1: Ensure database schema exists (Initial run safety for API)
 if [ ! -f "$folder/$db_file" ]; then
   echo "Initializing database schema..."
-  temp_init_sql="$folder/init-schema.sql"
+  # Use /tmp for temporary files to avoid permission issues in mounted volumes
+  temp_init_sql="/tmp/init-schema.sql"
   # Use '0' as a dummy timestamp for initialization
   sed "s#\${ts}#0#g" sqlite-init.sql > "$temp_init_sql"
   sqlite3 "$folder/$db_file" < "$temp_init_sql"
@@ -56,7 +57,7 @@ fi
 
 echo "Applying database schema and creating views..."
 # Apply the SQL initialization script (Liquibase-like approach) 
-temp_sqlfile="$folder/${ts}-sqlite-init.sql"
+temp_sqlfile="/tmp/${ts}-sqlite-init.sql"
 sed "s#\${ts}#${ts}#g" sqlite-init.sql > "$temp_sqlfile"
 
 
