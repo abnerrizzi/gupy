@@ -155,7 +155,7 @@ body {
 }
 
 .job-table td {
-  padding: 1.25rem 1.5rem;
+  padding: 0.5rem;
   font-size: 0.875rem;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-main);
