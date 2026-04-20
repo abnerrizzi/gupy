@@ -27,8 +27,13 @@ GUPY_LIMIT = int(os.environ.get('GUPY_COMPANY_LIMIT', 30))
 INHIRE_LIMIT = int(os.environ.get('INHIRE_COMPANY_LIMIT', 10))
 GUPY_THREADS = int(os.environ.get('GUPY_THREADS', 16))
 INHIRE_THREADS = int(os.environ.get('INHIRE_THREADS', 16))
+LINKEDIN_THREADS = int(os.environ.get('LINKEDIN_THREADS', 2))
+LINKEDIN_LIMIT = int(os.environ.get('LINKEDIN_COMPANY_LIMIT', 100)) # Number of jobs to fetch
+LINKEDIN_KEYWORDS = os.environ.get('LINKEDIN_KEYWORDS', 'Software Engineer')
+LINKEDIN_LOCATION = os.environ.get('LINKEDIN_LOCATION', 'Brazil')
 GUPY_TIMEOUT = 30
 INHIRE_TIMEOUT = 15
+LINKEDIN_TIMEOUT = 30
 RATE_LIMIT_SLEEP = 2
 
 class Scraper:
@@ -244,6 +249,112 @@ class InhireScraper(Scraper):
             
         return company_tuple, job_tuples
 
+class LinkedInScraper(Scraper):
+    def __init__(self, session):
+        super().__init__(session)
+        self.source_name = "linkedin"
+        self.limit = LINKEDIN_LIMIT
+        self.threads = LINKEDIN_THREADS
+        self.keywords = LINKEDIN_KEYWORDS
+        self.location = LINKEDIN_LOCATION
+
+    def fetch_companies(self):
+        # LinkedIn doesn't have a company list we iterate over, we search by keywords.
+        # We'll return a single "dummy" company representing the search query.
+        return [{
+            'id': 'linkedin_search',
+            'name': f'LinkedIn Search: {self.keywords} in {self.location}',
+            'url': 'https://www.linkedin.com/jobs'
+        }]
+
+    def fetch_jobs(self, company):
+        job_tuples = []
+        company_id = company['id']
+        company_name = company['name']
+        company_url = company['url']
+        
+        company_tuple = (company_id, company_name, None, company_url, json.dumps(company), self.source_name)
+        
+        base_url = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.linkedin.com/jobs/search',
+        }
+
+        start = 0
+        while len(job_tuples) < self.limit:
+            params = {
+                'keywords': self.keywords,
+                'location': self.location,
+                'start': start,
+            }
+            
+            try:
+                logger.info(f"Fetching LinkedIn jobs starting at {start}...")
+                response = self.session.get(base_url, params=params, headers=headers, timeout=LINKEDIN_TIMEOUT)
+                
+                if response.status_code == 429:
+                    logger.warning("LinkedIn rate limited (429). Stopping for this source.")
+                    break
+                
+                response.raise_for_status()
+                
+                soup = BeautifulSoup(response.content, 'html.parser')
+                job_cards = soup.find_all('li')
+                
+                if not job_cards:
+                    logger.info("No more LinkedIn jobs found.")
+                    break
+                
+                for card in job_cards:
+                    if len(job_tuples) >= self.limit:
+                        break
+                        
+                    try:
+                        # Extract basic info from the card
+                        title_tag = card.find('h3', class_='base-search-card__title')
+                        company_tag = card.find('h4', class_='base-search-card__subtitle')
+                        location_tag = card.find('span', class_='job-search-card__location')
+                        link_tag = card.find('a', class_='base-card__full-link')
+                        
+                        if not title_tag or not link_tag:
+                            continue
+                            
+                        job_title = title_tag.get_text(strip=True)
+                        job_company_name = company_tag.get_text(strip=True) if company_tag else "N/A"
+                        job_location = location_tag.get_text(strip=True) if location_tag else "N/A"
+                        job_link = link_tag.get('href', '').split('?')[0]
+                        
+                        # Extract Job ID from link (e.g., .../view/123456789)
+                        job_id_match = re.search(r'/view/(\d+)', job_link)
+                        job_id = job_id_match.group(1) if job_id_match else f"li_{hash(job_link)}"
+                        
+                        # Parse location
+                        parts = [p.strip() for p in job_location.split(',')]
+                        city = parts[0] if len(parts) > 0 else "N/A"
+                        state = parts[1] if len(parts) > 1 else "N/A"
+                        
+                        # Default values for fields not easily available in the guest list
+                        job_type = "N/A"
+                        department = "N/A"
+                        workplace_type = "N/A" # Could be parsed from title or card details if present
+                        
+                        job_tuples.append((job_id, job_company_name, job_title, job_type, department, city, state, workplace_type, self.source_name))
+                    
+                    except Exception as e:
+                        logger.error(f"Error parsing LinkedIn job card: {e}")
+                
+                start += 25
+                time.sleep(RATE_LIMIT_SLEEP) # Respectful delay between pages
+                
+            except Exception as e:
+                logger.error(f"Error fetching LinkedIn jobs: {e}")
+                break
+                
+        return company_tuple, job_tuples
+
 def get_http_session():
     """Create a requests session with retry strategy"""
     session = requests.Session()
@@ -316,12 +427,15 @@ if __name__ == "__main__":
     
     gupy_enabled = os.environ.get('GUPY_ENABLED', 'true').lower() == 'true'
     inhire_enabled = os.environ.get('INHIRE_ENABLED', 'true').lower() == 'true'
+    linkedin_enabled = os.environ.get('LINKEDIN_ENABLED', 'true').lower() == 'true'
 
     scrapers = []
     if gupy_enabled:
         scrapers.append(GupyScraper(session))
     if inhire_enabled:
         scrapers.append(InhireScraper(session))
+    if linkedin_enabled:
+        scrapers.append(LinkedInScraper(session))
     
     if not scrapers:
         logger.warning("No scrapers enabled. Exiting.")
