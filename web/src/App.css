@@ -262,3 +262,42 @@ body {
 .App-error button:hover {
   opacity: 0.9;
 }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .App-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .FilterBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .FilterBar select {
+    width: 100%;
+  }
+
+  .JobTable {
+    overflow-x: auto;
+  }
+
+  .JobTable th,
+  .JobTable td {
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .JobDetails {
+    width: 95%;
+    padding: 16px;
+    margin: 10px;
+  }
+
+  .App-error {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+}
