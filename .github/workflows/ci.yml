@@ -1,12 +1,12 @@
 name: CI Pipeline
 
 on:
-  push:
-    branches:
-      - main
-      - dev
-      - feature/*
-      - feat/*
+#  push:
+#    branches:
+#      - main
+#      - dev
+#      - 'feature/*'
+#      - 'feat/*'
   workflow_dispatch:
 
 env:
@@ -180,6 +180,7 @@ jobs:
 
   run-scraper:
     runs-on: ubuntu-latest
+    if: false # Scraper run disabled in CI to save resources/time
     needs: [lint, build-scraper]
     permissions:
       contents: read

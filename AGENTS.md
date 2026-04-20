@@ -5,10 +5,10 @@ This file contains guidelines for agentic coding agents working in this reposito
 ## Project Overview
 
 This repository contains a job scraping system with three main components:
-- `app/main.py` - Python scraper for Gupy API
+- `app/main.py` - Python scraper for various data sources
 - `api/` - Flask REST API serving job data
 - `web/` - React web UI for searching/filtering jobs
-- `run_scrap.sh` - Shell script to run the full scraping pipeline
+- `run_scrap.sh` - Shell script to run the full scraping pipeline (via Docker)
 
 ## Architecture
 
@@ -27,36 +27,32 @@ This repository contains a job scraping system with three main components:
 
 ## Build/Lint/Test Commands
 
-### Running Locally
-```bash
-# Run full pipeline (scraper + SQLite)
-./run_scrap.sh out/
-
-# Run only scraper
-python3 app/main.py "<timestamp>" "<folder>"
-
-# Create SQLite from CSV
-./create_sqlite_from_csv.sh "<timestamp>" "<folder>"
-```
+**CRITICAL: Do not run locally. Always use Docker to build and run the application.**
 
 ### Docker Compose (Recommended)
 ```bash
+# Build all services
 docker-compose build
-docker-compose up -d  # Start API and Web
-docker-compose run --rm scraper  # Run scraper manually
+
+# Start API and Web
+docker-compose up -d
+
+# Run scraper manually
+docker-compose run --rm scraper
 ```
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GUPY_COMPANY_LIMIT` | `3` | Number of companies to fetch |
-| `GUPY_THREADS` | `16` | Parallel worker threads |
+| `<SOURCE>_COMPANY_LIMIT` | Varies | Number of companies to fetch for a data source |
+| `<SOURCE>_THREADS` | `16` | Parallel worker threads for a data source |
+| `<SOURCE>_ENABLED` | `true` | Toggle a specific data source |
 | `GUPY_OUTPUT_FOLDER` | CLI arg | Output directory |
 
 ### Linting
 ```bash
-# Python
+# Python (run via docker or locally if environment is setup)
 python3 -m py_compile app/main.py api/app.py
 flake8 app/main.py api/app.py
 
@@ -78,7 +74,7 @@ cd web && npm test -- specific.test.js  # Run a single test
 
 # Manual Testing Validations
 ls -la out/
-sqlite3 out/*.db "SELECT COUNT(*) FROM jobs;"
+sqlite3 out/jobhubmine.db "SELECT COUNT(*) FROM jobs;"
 curl http://localhost:5000/api/filters
 curl http://localhost:8080/api/filters
 ```

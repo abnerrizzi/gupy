@@ -1,6 +1,6 @@
 # JobHubMine Job Scraping System
 
-A Dockerized pipeline to scrape, store, and browse job opportunities from Gupy and Inhire.
+A Dockerized pipeline to scrape, store, and browse job opportunities from various data sources.
 
 ## 🏗️ Architecture
 
@@ -35,12 +35,13 @@ This system is designed to run in Docker. Ensure [Docker](https://docs.docker.co
 
 ## ⚙️ Configuration
 
-Customize behavior using environment variables in `docker-compose.yml` or a `.env` file:
+Customize behavior using environment variables in `docker-compose.yml` or a `.env` file. `<SOURCE>` can be `GUPY` or `INHIRE`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GUPY_COMPANY_LIMIT` | `3` | Number of companies to scrape |
-| `GUPY_THREADS` | `16` | Parallel worker threads |
+| `<SOURCE>_COMPANY_LIMIT` | Varies | Number of companies to scrape |
+| `<SOURCE>_THREADS` | `16` | Parallel worker threads |
+| `<SOURCE>_ENABLED` | `true` | Toggle a specific data source |
 | `JOBHUBMINE_DATABASE` | `/app/out/jobhubmine.db` | Container path to the SQLite database |
 
 ## 🛠️ Development
