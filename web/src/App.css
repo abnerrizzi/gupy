@@ -175,6 +175,28 @@ body {
   color: var(--primary);
 }
 
+/* Tags */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.tag-source-gupy {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.tag-source-inhire {
+  background-color: #fce7f3;
+  color: #9d174d;
+}
+
 /* Pagination */
 .pagination {
   display: flex;
