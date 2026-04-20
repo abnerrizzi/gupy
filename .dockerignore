@@ -1,0 +1,14 @@
+.git/
+out/
+web/node_modules/
+*.db
+*.csv
+.env
+.vscode
+.venv
+result.log
+IMPROVEMENT_PLAN.md
+AGENTS.md
+README.md
+**/__pycache__/
+**/*.pyc
