@@ -24,13 +24,6 @@ esac
 folder="${folder%/}"
 mkdir -p "$folder"
 
-# Check if we have write permission in the folder
-if [ ! -w "$folder" ]; then
-  echo "Error: No write permission in folder: $folder"
-  echo "If using Docker, check permissions of the mounted volume."
-  exit 1
-fi
-
 db_file="jobhubmine.db"
 
 echo "Starting job scraping..."
