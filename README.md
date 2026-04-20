@@ -35,13 +35,15 @@ This system is designed to run in Docker. Ensure [Docker](https://docs.docker.co
 
 ## ⚙️ Configuration
 
-Customize behavior using environment variables in `docker-compose.yml` or a `.env` file. `<SOURCE>` can be `GUPY` or `INHIRE`.
+Customize behavior using environment variables in `docker-compose.yml` or a `.env` file. `<SOURCE>` can be `GUPY`, `INHIRE`, or `LINKEDIN`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `<SOURCE>_COMPANY_LIMIT` | Varies | Number of companies to scrape |
+| `<SOURCE>_COMPANY_LIMIT` | Varies | Number of companies/jobs to scrape |
 | `<SOURCE>_THREADS` | `16` | Parallel worker threads |
 | `<SOURCE>_ENABLED` | `true` | Toggle a specific data source |
+| `LINKEDIN_KEYWORDS` | `Software Engineer` | LinkedIn search keywords |
+| `LINKEDIN_LOCATION` | `Brazil` | LinkedIn search location |
 | `JOBHUBMINE_DATABASE` | `/app/out/jobhubmine.db` | Container path to the SQLite database |
 
 ## 🛠️ Development

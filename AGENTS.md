@@ -37,9 +37,11 @@ docker-compose run --rm scraper
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `<SOURCE>_COMPANY_LIMIT` | Varies | Number of companies to fetch for a data source |
+| `<SOURCE>_COMPANY_LIMIT` | Varies | Number of companies/jobs to fetch for a data source |
 | `<SOURCE>_THREADS` | `16` | Parallel worker threads for a data source |
 | `<SOURCE>_ENABLED` | `true` | Toggle a specific data source |
+| `LINKEDIN_KEYWORDS` | `Software Engineer` | Job title or skill keywords for LinkedIn |
+| `LINKEDIN_LOCATION` | `Brazil` | Geographic filter for LinkedIn |
 | `GUPY_OUTPUT_FOLDER` | CLI arg | Output directory |
 
 ### Linting
