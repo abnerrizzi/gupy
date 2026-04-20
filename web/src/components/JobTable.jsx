@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
 function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPageChange }) {
   const getCompanyName = (companyId) => {
@@ -6,39 +7,10 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
     return company ? company.name : companyId;
   };
 
-  const formatWorkplaceType = (type) => {
-    if (!type) return 'N/A';
-    switch (type.toLowerCase()) {
-      case 'on-site':
-      case 'presencial':
-        return 'Presencial';
-      case 'remote':
-      case 'remoto':
-      case 'home office':
-        return 'Remoto';
-      case 'hybrid':
-      case 'híbrido':
-        return 'Híbrido';
-      default:
-        return type;
-    }
-  };
-
-  const formatJobType = (type) => {
-    if (!type) return 'N/A';
-    switch (type.toLowerCase()) {
-      case 'vacancy_type_effective':
-      case 'efetivo':
-      case 'full-time':
-        return 'Efetiva';
-      case 'vacancy_type_talent_pool':
-      case 'banco de talentos':
-        return 'Banco de Talentos';
-      case 'estágio':
-      case 'internship':
-        return 'Estágio';
-      default:
-        return type;
+  const handleKeyDown = (e, job) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onJobClick(job);
     }
   };
 
@@ -66,7 +38,14 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
             </tr>
           ) : (
             jobs.map((job) => (
-              <tr key={job.job_id} onClick={() => onJobClick(job)}>
+              <tr 
+                key={job.job_id} 
+                onClick={() => onJobClick(job)}
+                onKeyDown={(e) => handleKeyDown(e, job)}
+                role="button"
+                tabIndex="0"
+                aria-label={`Ver detalhes da vaga ${job.job_title}`}
+              >
                 <td>
                   <a href={job.job_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                     {job.job_title}
@@ -88,7 +67,7 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
                 </td>
                 <td>
                   <span className={`source-badge source-${job.source}`}>
-                    {job.source.toUpperCase()}
+                    {job.source?.toUpperCase() || 'N/A'}
                   </span>
                 </td>
               </tr>
@@ -102,6 +81,7 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
           <button
             disabled={page === 0}
             onClick={() => onPageChange(page - 1)}
+            aria-label="Página anterior"
           >
             Anterior
           </button>
@@ -111,6 +91,7 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
           <button
             disabled={page >= totalPages - 1}
             onClick={() => onPageChange(page + 1)}
+            aria-label="Próxima página"
           >
            Próxima
           </button>

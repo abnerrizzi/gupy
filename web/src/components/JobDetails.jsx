@@ -1,58 +1,58 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
 function JobDetails({ job, company, onClose }) {
+  const modalRef = useRef(null);
+  const closeButtonRef = useRef(null);
+
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    
+    // Focus management
+    const previousFocus = document.activeElement;
+    closeButtonRef.current?.focus();
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+      previousFocus?.focus();
+    };
+  }, [onClose]);
+
   if (!job) return null;
 
-  const formatWorkplaceType = (type) => {
-    if (!type) return 'N/A';
-    switch (type.toLowerCase()) {
-      case 'on-site':
-      case 'presencial':
-        return 'Presencial';
-      case 'remote':
-      case 'remoto':
-      case 'home office':
-        return 'Remoto';
-      case 'hybrid':
-      case 'híbrido':
-        return 'Híbrido';
-      default:
-        return type;
-    }
-  };
-
-  const formatJobType = (type) => {
-    if (!type) return 'N/A';
-    switch (type.toLowerCase()) {
-      case 'vacancy_type_effective':
-      case 'efetivo':
-      case 'full-time':
-        return 'Efetiva';
-      case 'vacancy_type_talent_pool':
-      case 'banco de talentos':
-        return 'Banco de Talentos';
-      case 'estágio':
-      case 'internship':
-        return 'Estágio';
-      default:
-        return type;
-    }
-  };
-
   return (
-    <div className="JobDetails-overlay" onClick={onClose}>
-      <div className="JobDetails" onClick={(e) => e.stopPropagation()}>
-        <button className="JobDetails-close" onClick={onClose}>
+    <div 
+      className="JobDetails-overlay" 
+      onClick={onClose}
+      role="presentation"
+    >
+      <div 
+        className="JobDetails" 
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="job-details-title"
+        ref={modalRef}
+      >
+        <button 
+          className="JobDetails-close" 
+          onClick={onClose}
+          aria-label="Fechar detalhes"
+          ref={closeButtonRef}
+        >
           &times;
         </button>
 
         {company?.logo_url && (
           <div className="JobDetails-logo">
-            <img src={company.logo_url} alt={company.name} />
+            <img src={company.logo_url} alt={`Logo da ${company.name || job.company_name}`} />
           </div>
         )}
 
-        <h2>{job.job_title}</h2>
+        <h2 id="job-details-title">{job.job_title}</h2>
 
         <div className="JobDetails-info">
           <div>
@@ -77,7 +77,7 @@ function JobDetails({ job, company, onClose }) {
           </div>
           <div>
             <label>Fonte:</label>
-            <strong>{job.source?.toUpperCase()}</strong>
+            <strong>{job.source?.toUpperCase() || 'N/A'}</strong>
           </div>
         </div>
 
