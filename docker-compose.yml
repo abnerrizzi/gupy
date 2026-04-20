@@ -18,14 +18,18 @@ services:
     env_file: .env
     volumes:
       - ./out:/app/out
-    ports:
-      - "5000:5000"
+    expose:
+      - "5000"
+    restart: unless-stopped
 
   web:
     build:
       context: ./web
       dockerfile: Dockerfile
+    depends_on:
+      - api
     ports:
       - "8080:80"
     environment:
       - API_URL=http://api:5000
+    restart: unless-stopped
