@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
 function FilterBar({ companies, filters, selected, onChange, onReset }) {
   const handleChange = (key) => (e) => {
@@ -68,7 +69,7 @@ function FilterBar({ companies, filters, selected, onChange, onReset }) {
         <option value="">Todos os tipos</option>
         {filters.workplace_types?.map((type) => (
           <option key={type} value={type}>
-            {type === 'on-site' ? 'Presencial' : type === 'remote' ? 'Remoto' : type === 'hybrid' ? 'Híbrido' : type}
+            {formatWorkplaceType(type)}
           </option>
         ))}
       </select>
@@ -81,7 +82,7 @@ function FilterBar({ companies, filters, selected, onChange, onReset }) {
         <option value="">Todas as vagas</option>
         {filters.job_types?.map((type) => (
           <option key={type} value={type}>
-            {type === 'vacancy_type_effective' ? 'Efetiva' : type === 'vacancy_type_talent_pool' ? 'Banco de Talentos' : type}
+            {formatJobType(type)}
           </option>
         ))}
       </select>

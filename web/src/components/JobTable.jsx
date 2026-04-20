@@ -21,6 +21,7 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
             <th>Localização</th>
             <th>Tipo</th>
             <th>Modalidade</th>
+            <th>Fonte</th>
           </tr>
         </thead>
         <tbody>
@@ -34,7 +35,16 @@ function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPa
                   : job.workplace_city || job.workplace_state || 'N/A'}
               </td>
               <td>{formatJobType(job.job_type)}</td>
-              <td>{formatWorkplaceType(job.workplace_type)}</td>
+              <td>
+                <span className={`tag tag-workplace-${(job.workplace_type || 'na').toLowerCase().replace('-', '')}`}>
+                  {formatWorkplaceType(job.workplace_type)}
+                </span>
+              </td>
+              <td>
+                <span className={`tag tag-source-${(job.source || 'gupy').toLowerCase()}`}>
+                  {(job.source || 'Gupy').toUpperCase()}
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>

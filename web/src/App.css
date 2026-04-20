@@ -175,6 +175,48 @@ body {
   color: var(--primary);
 }
 
+/* Tags */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.tag-source-gupy {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.tag-source-inhire {
+  background-color: #fce7f3;
+  color: #9d174d;
+}
+
+.tag-workplace-onsite {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.tag-workplace-remote {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.tag-workplace-hybrid {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.tag-workplace-na {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
 /* Pagination */
 .pagination {
   display: flex;
