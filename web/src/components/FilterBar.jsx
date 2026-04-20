@@ -67,11 +67,14 @@ function FilterBar({ companies, filters, selected, onChange, onReset }) {
         aria-label="Filtrar por tipo de ambiente"
       >
         <option value="">Todos os tipos</option>
-        {filters.workplace_types?.map((type) => (
-          <option key={type} value={type}>
-            {formatWorkplaceType(type)}
-          </option>
-        ))}
+        {Array.from(new Set(filters.workplace_types?.map(formatWorkplaceType)))
+          .filter(Boolean)
+          .sort()
+          .map((label) => (
+            <option key={label} value={label}>
+              {label}
+            </option>
+          ))}
       </select>
 
       <select 
@@ -80,11 +83,14 @@ function FilterBar({ companies, filters, selected, onChange, onReset }) {
         aria-label="Filtrar por tipo de vaga"
       >
         <option value="">Todas as vagas</option>
-        {filters.job_types?.map((type) => (
-          <option key={type} value={type}>
-            {formatJobType(type)}
-          </option>
-        ))}
+        {Array.from(new Set(filters.job_types?.map(formatJobType)))
+          .filter(Boolean)
+          .sort()
+          .map((label) => (
+            <option key={label} value={label}>
+              {label}
+            </option>
+          ))}
       </select>
 
       <select 

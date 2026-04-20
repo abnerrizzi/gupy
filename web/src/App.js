@@ -79,8 +79,8 @@ function App() {
       if (city) params.append('city', city);
       if (state) params.append('state', state);
       if (department) params.append('department', department);
-      if (workplaceType) params.append('workplace_type', workplaceType);
-      if (jobType) params.append('type', jobType);
+      if (workplaceType) params.append('workplaceType', workplaceType);
+      if (jobType) params.append('jobType', jobType);
       if (source) params.append('source', source);
       params.append('offset', page * PAGE_SIZE);
       params.append('limit', PAGE_SIZE);
