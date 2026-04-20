@@ -1,6 +1,12 @@
 name: CI Pipeline
 
 on:
+#  push:
+#    branches:
+#      - main
+#      - dev
+#      - 'feature/*'
+#      - 'feat/*'
   workflow_dispatch:
 
 env:
