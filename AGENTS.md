@@ -4,11 +4,11 @@ This file contains critical instructions and guidelines for agentic coding agent
 
 ## Project Overview
 
-JobHubMine is a multi-source job scraping and visualization system.
-- **Scraper (`app/`):** Python-based crawler for Gupy, Inhire, etc.
-- **API (`api/`):** Flask REST API serving SQLite data.
-- **Web (`web/`):** React functional UI for browsing jobs.
-- **Data (`out/`):** SQLite database (`jobhubmine.db`) populated via `run_scrap.sh`.
+This repository contains a job scraping system with three main components:
+- `app/main.py` - Python scraper for various data sources
+- `api/` - Flask REST API serving job data
+- `web/` - React web UI for searching/filtering jobs
+- `run_scrap.sh` - Shell script to run the full scraping pipeline (via Docker)
 
 ## Core Mandates
 
@@ -19,23 +19,34 @@ JobHubMine is a multi-source job scraping and visualization system.
 
 ## Build/Lint/Test Commands
 
-### Docker Execution
+**CRITICAL: Do not run locally. Always use Docker to build and run the application.**
+
+### Docker Compose (Recommended)
 ```bash
-# Full build and start (API at 5000, Web at 8080)
-docker-compose build && docker-compose up -d
+# Build all services
+docker-compose build
 
-# Run Scraper (manually trigger)
+# Start API and Web
+docker-compose up -d
+
+# Run scraper manually
 docker-compose run --rm scraper
-
-# View Logs
-docker-compose logs -f [api|web|scraper]
 ```
 
-### Linting & Quality
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `<SOURCE>_COMPANY_LIMIT` | Varies | Number of companies to fetch for a data source |
+| `<SOURCE>_THREADS` | `16` | Parallel worker threads for a data source |
+| `<SOURCE>_ENABLED` | `true` | Toggle a specific data source |
+| `GUPY_OUTPUT_FOLDER` | CLI arg | Output directory |
+
+### Linting
 ```bash
-# Python (Lint/Type Check)
-python3 -m py_compile /home/abner.smartdb/src/jobhubmine/app/main.py
-flake8 /home/abner.smartdb/src/jobhubmine/app/main.py
+# Python (run via docker or locally if environment is setup)
+python3 -m py_compile app/main.py api/app.py
+flake8 app/main.py api/app.py
 
 # React
 cd /home/abner.smartdb/src/jobhubmine/web && npm run lint
@@ -44,15 +55,19 @@ cd /home/abner.smartdb/src/jobhubmine/web && npm run lint
 ### Testing
 There is no automated test suite. Perform manual validation:
 ```bash
-# API Health Check
-curl http://localhost:5000/api/health
+# Run Python tests
+pytest
+pytest path/to/specific_test.py  # Run a single test
 
-# Verify Data in DB
-sqlite3 /home/abner.smartdb/src/jobhubmine/out/jobhubmine.db "SELECT source, COUNT(*) FROM jobs_all GROUP BY source;"
+# Run React tests
+cd web && npm test
+cd web && npm test -- specific.test.js  # Run a single test
 
-# If pytest/jest are added:
-# pytest /home/abner.smartdb/src/jobhubmine/tests/test_file.py
-# npm test -- /home/abner.smartdb/src/jobhubmine/web/src/Component.test.js
+# Manual Testing Validations
+ls -la out/
+sqlite3 out/jobhubmine.db "SELECT COUNT(*) FROM jobs;"
+curl http://localhost:5000/api/filters
+curl http://localhost:8080/api/filters
 ```
 
 ## Code Style Guidelines
