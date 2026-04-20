@@ -3,9 +3,59 @@ import PropTypes from 'prop-types';
 import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
 function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPageChange }) {
-...
+  if (loading && jobs.length === 0) {
+    return <div className="loading">Carregando vagas...</div>;
+  }
+
+  if (!loading && jobs.length === 0) {
+    return <div className="no-jobs">Nenhuma vaga encontrada para os filtros selecionados.</div>;
+  }
+
   return (
-...
+    <div className="job-table-container">
+      <table className="job-table">
+        <thead>
+          <tr>
+            <th>Título</th>
+            <th>Empresa</th>
+            <th>Localização</th>
+            <th>Tipo</th>
+            <th>Modalidade</th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map((job) => (
+            <tr key={job.job_id} onClick={() => onJobClick(job)} className="job-row">
+              <td>{job.job_title}</td>
+              <td>{job.company_name}</td>
+              <td>
+                {job.workplace_city && job.workplace_state
+                  ? `${job.workplace_city}, ${job.workplace_state}`
+                  : job.workplace_city || job.workplace_state || 'N/A'}
+              </td>
+              <td>{formatJobType(job.job_type)}</td>
+              <td>{formatWorkplaceType(job.workplace_type)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="pagination">
+        <button
+          disabled={page === 0}
+          onClick={() => onPageChange(page - 1)}
+        >
+          Anterior
+        </button>
+        <span>Página {page + 1} de {totalPages || 1}</span>
+        <button
+          disabled={page >= totalPages - 1}
+          onClick={() => onPageChange(page + 1)}
+        >
+          Próxima
+        </button>
+      </div>
+    </div>
   );
 }
 
