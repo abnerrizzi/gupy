@@ -6,6 +6,7 @@ function JobSearch({ value, onChange }) {
       <input
         type="text"
         placeholder="Buscar vagas por título..."
+        aria-label="Buscar vagas por título"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
