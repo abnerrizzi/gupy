@@ -5,7 +5,6 @@ This file contains guidelines for agentic coding agents working in this reposito
 ## Project Overview
 
 This repository contains a job scraping system with three main components:
-
 - `app/main.py` - Python scraper for Gupy API
 - `api/` - Flask REST API serving job data
 - `web/` - React web UI for searching/filtering jobs
@@ -29,7 +28,6 @@ This repository contains a job scraping system with three main components:
 ## Build/Lint/Test Commands
 
 ### Running Locally
-
 ```bash
 # Run full pipeline (scraper + SQLite)
 ./run_scrap.sh out/
@@ -42,16 +40,10 @@ python3 app/main.py "<timestamp>" "<folder>"
 ```
 
 ### Docker Compose (Recommended)
-
 ```bash
-# Build all services
 docker-compose build
-
-# Start API and Web (no scraper)
-docker-compose up -d
-
-# Run scraper manually (only when needed)
-docker-compose run --rm scraper
+docker-compose up -d  # Start API and Web
+docker-compose run --rm scraper  # Run scraper manually
 ```
 
 ### Environment Variables
@@ -63,61 +55,66 @@ docker-compose run --rm scraper
 | `GUPY_OUTPUT_FOLDER` | CLI arg | Output directory |
 
 ### Linting
-
 ```bash
-# Python syntax check
+# Python
 python3 -m py_compile app/main.py api/app.py
-
-# With flake8
-pip install flake8
 flake8 app/main.py api/app.py
+
+# React
+cd web && npm run lint
 ```
 
 ### Testing
-
-Manual testing by running the scraper and verifying:
+There are currently no automated test suites, so rely on manual validations. If `pytest` or `jest`/`react-scripts` testing are added, use the following commands:
 
 ```bash
-# Verify CSV output
+# Run Python tests
+pytest
+pytest path/to/specific_test.py  # Run a single test
+
+# Run React tests
+cd web && npm test
+cd web && npm test -- specific.test.js  # Run a single test
+
+# Manual Testing Validations
 ls -la out/
-
-# Verify SQLite data
-sqlite3 out/*.db ".tables"
 sqlite3 out/*.db "SELECT COUNT(*) FROM jobs;"
-
-# Test API
 curl http://localhost:5000/api/filters
-
-# Test Web UI
 curl http://localhost:8080/api/filters
 ```
 
 ## Code Style Guidelines
 
-### Python (app/main.py, api/app.py)
-
-- Use f-strings for string interpolation
-- 4 spaces for indentation
-- snake_case for functions/variables
-- UPPER_SNAKE_CASE for constants
-- Type hints for function signatures
+### Python (Scraper & API)
+- **Formatting:** 4 spaces for indentation.
+- **Naming Conventions:** `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_SNAKE_CASE` for constants.
+- **Types:** Provide type hints for all function signatures.
+- **Strings:** Use f-strings for string interpolation.
+- **Imports Order:** 1. Standard library, 2. Third-party packages, 3. Local modules.
+- **Error Handling:** Use specific exception catches with clear logging. Avoid empty `except:` blocks.
 
 ```python
 import os
 import sys
 import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List, Tuple
+from concurrent.futures import ThreadPoolExecutor
 
-def fetch_and_process_job_data(company: dict) -> tuple:
-    company_id: str = company.get('companyId', '')
-    return company_data, job_data_list
+def fetch_and_process_job_data(company: Dict) -> Tuple[Dict, List[Dict]]:
+    """Fetches job data for a specific company."""
+    try:
+        company_id: str = company.get('companyId', '')
+        # logic here
+        return company_data, job_data_list
+    except requests.RequestException as e:
+        print(f"Error fetching data: {e}")
+        raise
 ```
 
-### React (web/src/)
-
-- Functional components with hooks
-- PascalCase for component names
-- CSS modules or styled-components
+### React (Web UI)
+- **Components:** Use functional components with React hooks.
+- **Naming Conventions:** `PascalCase` for component names and files (`.jsx`), `camelCase` for props and variables.
+- **Styles:** Use CSS modules or styled-components.
 
 ```jsx
 function JobSearch({ value, onChange }) {
@@ -126,81 +123,31 @@ function JobSearch({ value, onChange }) {
 ```
 
 ### Shell Scripts
+- Use `#!/bin/sh` for portability.
+- Check file existence (`[ ! -f ... ]`) and executability.
+- Always use proper variable quoting (e.g., `"$folder"` instead of `$folder`).
 
-- Use `#!/bin/sh` for portability
-- Check file existence and executability
-- Proper variable quoting
+## Git & Commit Conventions
 
-```bash
-if [ ! -x "app/main.py" ]; then
-  echo "Error: app/main.py not found"
-  exit 1
-fi
-folder="${folder%/}/"
-```
-
-### Imports Order
-
-1. Standard library
-2. Third-party packages
-3. Local modules
-
-## Git Conventions
-
-- Branch naming: `feature/*`, `dev`, `main`
-- CI runs on push to `main`, `dev`, `feature/*`
-- No pre-commit hooks
-- Use the `auto-commit` skill (`.skills/auto-commit.md`) for automatic commits
+The project follows the **Conventional Commits Format**.
+- **Format:** `type(scope): description`
+- **Types:** `feat` (new feature), `fix` (bug fix), `refactor` (code refactoring), `chore` (maintenance, tooling), `docs` (documentation).
+- **Example:** `feat(search): add 200ms debounce`
+- Use the `auto-commit` skill (`.skills/auto-commit.md`) for automatic commits.
+- **Exclusions:** Never commit generated output files (`out/`, `*.db`, `*.csv`), logs, or node_modules.
 
 ## File Organization
 
 ```
-/home/abner.smartdb/src/gupy/
-├── app/              # Scraper
-│   ├── main.py
-│   └── requirements.txt
+/home/abner.smartdb/src/jobhubmine/
+├── app/              # Python Scraper
 ├── api/              # Flask API
-│   ├── app.py
-│   ├── Dockerfile
-│   └── requirements.txt
 ├── web/              # React UI
-│   ├── src/
-│   ├── public/
-│   ├── package.json
-│   ├── Dockerfile
-│   └── nginx.conf
 ├── docker-compose.yml
 ├── run_scrap.sh
-└── out/             # Output (created at runtime)
-```
-
-## Common Tasks
-
-### Adding a New Field
-
-1. `app/main.py`: Add field extraction
-2. `sqlite-init.sql`: Add column
-3. `api/app.py`: Update endpoint if needed
-4. `web/src/App.js`: Add to UI if needed
-
-### Changing API Configuration
-
-```bash
-# Via environment
-GUPY_COMPANY_LIMIT=10 docker-compose run --rm scraper
-
-# Via .env file
-cp .env_sample .env
-# Edit .env then:
-docker-compose --env-file .env up -d
-```
-
-### Rebuilding After Code Changes
-
-```bash
-# Rebuild specific service
-docker-compose build web
-docker-compose up -d --force-recreate web
+├── sqlite-init.sql
+├── .skills/          # Agent skills
+└── out/              # Output (ignored in git)
 ```
 
 ## CI/CD
