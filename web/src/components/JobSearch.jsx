@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 function JobSearch({ value, onChange }) {
   return (
@@ -13,5 +14,10 @@ function JobSearch({ value, onChange }) {
     </div>
   );
 }
+
+JobSearch.propTypes = {
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+};
 
 export default JobSearch;

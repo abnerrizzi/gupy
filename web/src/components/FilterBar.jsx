@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 function FilterBar({ companies, filters, selected, onChange, onReset }) {
   const handleChange = (key) => (e) => {
@@ -104,5 +105,31 @@ function FilterBar({ companies, filters, selected, onChange, onReset }) {
     </div>
   );
 }
+
+FilterBar.propTypes = {
+  companies: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    name: PropTypes.string.isRequired,
+  })).isRequired,
+  filters: PropTypes.shape({
+    cities: PropTypes.arrayOf(PropTypes.string),
+    states: PropTypes.arrayOf(PropTypes.string),
+    departments: PropTypes.arrayOf(PropTypes.string),
+    workplace_types: PropTypes.arrayOf(PropTypes.string),
+    job_types: PropTypes.arrayOf(PropTypes.string),
+    sources: PropTypes.arrayOf(PropTypes.string),
+  }).isRequired,
+  selected: PropTypes.shape({
+    companyId: PropTypes.string,
+    city: PropTypes.string,
+    state: PropTypes.string,
+    department: PropTypes.string,
+    workplaceType: PropTypes.string,
+    jobType: PropTypes.string,
+    source: PropTypes.string,
+  }).isRequired,
+  onChange: PropTypes.func.isRequired,
+  onReset: PropTypes.func.isRequired,
+};
 
 export default FilterBar;
