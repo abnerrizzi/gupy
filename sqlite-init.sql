@@ -3,7 +3,7 @@
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS jobs_all (
-    id TEXT PRIMARY KEY,
+    id TEXT,
     company_id TEXT,
     title TEXT,
     type TEXT,
@@ -11,10 +11,14 @@ CREATE TABLE IF NOT EXISTS jobs_all (
     workplace_city TEXT,
     workplace_state TEXT,
     workplace_type TEXT,
-    source TEXT
+    source TEXT,
+    run_ts TEXT,
+    PRIMARY KEY (id, run_ts)
 );
 
 -- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_jobs_id ON jobs_all(id);
+CREATE INDEX IF NOT EXISTS idx_jobs_run_ts ON jobs_all(run_ts);
 CREATE INDEX IF NOT EXISTS idx_jobs_company_id ON jobs_all(company_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_city ON jobs_all(workplace_city);
 CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs_all(workplace_state);
@@ -24,13 +28,18 @@ CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs_all(type);
 CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs_all(source);
 
 CREATE TABLE IF NOT EXISTS companies_all (
-    id TEXT PRIMARY KEY,
+    id TEXT,
     name TEXT,            
     logo_url TEXT,
     career_page_url TEXT,
     company_data TEXT,
-    source TEXT
+    source TEXT,
+    run_ts TEXT,
+    PRIMARY KEY (id, run_ts)
 );
+
+CREATE INDEX IF NOT EXISTS idx_companies_id ON companies_all(id);
+CREATE INDEX IF NOT EXISTS idx_companies_run_ts ON companies_all(run_ts);
 
 -- 2. HANDLE TEMPORARY/TIMESTAMPED TABLES
 -- We always create these to avoid "no such table" errors in subsequent steps.
@@ -60,18 +69,22 @@ CREATE TABLE IF NOT EXISTS companies_${ts} (
 -- Migration from current run to 'all' tables
 -- If ${ts} is 0, this does nothing.
 INSERT OR REPLACE INTO jobs_all 
-SELECT * FROM jobs_${ts} WHERE '${ts}' != '0';
+SELECT *, '${ts}' as run_ts FROM jobs_${ts} WHERE '${ts}' != '0';
 
 INSERT OR REPLACE INTO companies_all 
-SELECT * FROM companies_${ts} WHERE '${ts}' != '0';
+SELECT *, '${ts}' as run_ts FROM companies_${ts} WHERE '${ts}' != '0';
 
 -- 4. UPDATE VIEWS
--- Views now point to the "all" tables to provide a cumulative view for the API
+-- Views now point to the "latest" data within the "all" tables
 DROP VIEW IF EXISTS jobs;
-CREATE VIEW jobs AS SELECT * FROM jobs_all;
+CREATE VIEW jobs AS 
+SELECT * FROM jobs_all 
+WHERE run_ts = (SELECT MAX(run_ts) FROM jobs_all);
 
 DROP VIEW IF EXISTS companies;
-CREATE VIEW companies AS SELECT * FROM companies_all;
+CREATE VIEW companies AS 
+SELECT * FROM companies_all 
+WHERE run_ts = (SELECT MAX(run_ts) FROM companies_all);
 
 -- Create or replace the "latest" tables for legacy compatibility
 DROP TABLE IF EXISTS jobs_latest;
@@ -112,9 +125,9 @@ CREATE VIEW job_details AS
         j.workplace_state,
         j.source
     FROM
-        jobs_all j
+        jobs j
     LEFT JOIN
-        companies_all c ON j.company_id = c.id;
+        companies c ON j.company_id = c.id;
 
 COMMIT;
 
