@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 # Constants
 GUPY_LIMIT = int(os.environ.get('GUPY_COMPANY_LIMIT', 30))
 INHIRE_LIMIT = int(os.environ.get('INHIRE_COMPANY_LIMIT', 10))
-THREADS = int(os.environ.get('GUPY_THREADS', 16))
+GUPY_THREADS = int(os.environ.get('GUPY_THREADS', 16))
+INHIRE_THREADS = int(os.environ.get('INHIRE_THREADS', 16))
 GUPY_TIMEOUT = 30
 INHIRE_TIMEOUT = 15
 RATE_LIMIT_SLEEP = 2
@@ -35,6 +36,7 @@ class Scraper:
         self.session = session
         self.source_name = "unknown"
         self.limit = 30
+        self.threads = 1
 
     def fetch_companies(self):
         raise NotImplementedError
@@ -47,6 +49,7 @@ class GupyScraper(Scraper):
         super().__init__(session)
         self.source_name = "gupy"
         self.limit = GUPY_LIMIT
+        self.threads = GUPY_THREADS
 
     def fetch_companies(self):
         # We use a separate limit for Gupy if needed, but here we respect self.limit
@@ -101,6 +104,7 @@ class InhireScraper(Scraper):
         super().__init__(session)
         self.source_name = "inhire"
         self.limit = INHIRE_LIMIT
+        self.threads = INHIRE_THREADS
 
     def fetch_companies(self):
         url = "https://carreira.inhire.com.br/carreiras/"
@@ -334,7 +338,7 @@ if __name__ == "__main__":
         scraper_companies = 0
         scraper_jobs = 0
         
-        with ThreadPoolExecutor(max_workers=THREADS) as executor:
+        with ThreadPoolExecutor(max_workers=scraper.threads) as executor:
             future_to_company = {executor.submit(scraper.fetch_jobs, company): company for company in companies}
             
             for future in tqdm.tqdm(as_completed(future_to_company), total=len(companies), desc=f"Scraping {scraper.source_name}"):
