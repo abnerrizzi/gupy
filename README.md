@@ -1,93 +1,43 @@
-# Job Scraping System
+# Gupy Job Scraping System
 
-A complete pipeline for scraping job data from the API(gupy/inhire), storing it in SQLite, and serving it via a Flask API to a React web interface.
+A Dockerized pipeline to scrape, store, and browse job opportunities from Gupy and Inhire.
 
-## Architecture
+## 🚀 Getting Started (Docker)
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Scraper    │────▶│   SQLite     │◀────│     API      │
-│  (Python)    │     │   Database   │     │   (Flask)    │
-└──────────────┘     └──────────────┘     └──────────────┘
-                                                  │
-                                                  ▼
-                                         ┌──────────────┐
-                                         │     Web      │
-                                         │   (React)    │
-                                         └──────────────┘
-```
+This system is designed to run in Docker. Ensure [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) are installed.
 
-## Components
-
-- **Scraper (`app/`)**: Python script that fetches job data and exports to CSV/SQLite.
-- **API (`api/`)**: Flask REST API serving job filters and data.
-- **Web (`web/`)**: React-based dashboard for searching and filtering jobs.
-
-## Getting Started
-
-### Using Docker Compose (Recommended)
-
-1. **Build and start services**:
+1. **Launch Services**:
    ```bash
-   docker-compose build
    docker-compose up -d
    ```
-   *The API will be available at `http://localhost:5000` and the Web UI at `http://localhost:8080`.*
+   * **Web UI**: [http://localhost:8080](http://localhost:8080)
+   * **API**: [http://localhost:5000](http://localhost:5000)
 
-2. **Run Scraper manually**:
+2. **Scrape Data**:
    ```bash
    docker-compose run --rm scraper
    ```
 
-### Running Locally
+## ⚙️ Configuration
 
-1. **Run full pipeline**:
-   ```bash
-   ./run_scrap.sh out/
-   ```
-
-2. **Run components separately**:
-   ```bash
-   # Scraper only
-   python3 app/main.py "<timestamp>" "<folder>"
-   
-   # Initialize SQLite from CSV
-   ./create_sqlite_from_csv.sh "<timestamp>" "<folder>"
-   ```
-
-## Configuration
+Customize behavior using environment variables in `docker-compose.yml` or a `.env` file:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GUPY_COMPANY_LIMIT` | `3` | Number of companies to fetch |
+| `GUPY_COMPANY_LIMIT` | `3` | Number of companies to scrape |
 | `GUPY_THREADS` | `16` | Parallel worker threads |
-| `GUPY_OUTPUT_FOLDER` | CLI arg | Output directory for CSV/DB files |
+| `GUPY_DATABASE` | `/app/out/gupy.db` | Container path to the SQLite database |
 
-## Development
+## 🛠️ Development
 
-### Linting
+To rebuild services after code changes:
 ```bash
-python3 -m py_compile app/main.py api/app.py
-# or
-flake8 app/main.py api/app.py
+docker-compose build
+docker-compose up -d --force-recreate
 ```
 
-### Verification
-```bash
-# Verify SQLite data
-sqlite3 out/*.db "SELECT COUNT(*) FROM jobs;"
-
-# Test API
-curl http://localhost:5000/api/filters
-```
-
-## Project Structure
-
-```
-├── app/              # Scraper (Python)
-├── api/              # Flask API
-├── web/              # React UI
-├── run_scrap.sh      # Pipeline script
-├── sqlite-init.sql   # Database schema
-└── out/              # Generated data (CSV/SQLite)
-```
+## 📂 Project Structure
+- `app/`: Python scraper service.
+- `api/`: Flask REST API service.
+- `web/`: React frontend service.
+- `out/`: Persistent storage for the SQLite database and logs.
