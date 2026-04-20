@@ -3,9 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    user: "${UID:-1000}:${GID:-1000}"
     env_file: .env
-    command: ./run_scrap.sh
-      #entrypoint: ["/bin/sleep", "infinity"]
+    command: ["./run_scrap.sh", "out"]
     volumes:
       - ./out:/app/out
     profiles:
