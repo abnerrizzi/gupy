@@ -6,7 +6,7 @@ folder=${1:-out}
 # Ensure folder does NOT end with a slash and create it 
 folder="${folder%/}"
 mkdir -p "$folder"
-db_file="gupy.db"
+db_file="jobhubmine.db"
 
 # Check if `app/main.py` exists and is executable
 if [ ! -x "app/main.py" ]; then

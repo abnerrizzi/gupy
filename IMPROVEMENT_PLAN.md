@@ -1,4 +1,4 @@
-# Gupy Job Scraper - Improvement & Refactor Plan
+# JobHubMine Job Scraper - Improvement & Refactor Plan
 
 This document outlines the identified bugs, performance bottlenecks, and areas for structural improvement across the repository.
 
@@ -8,7 +8,7 @@ This document outlines the identified bugs, performance bottlenecks, and areas f
     *   *Issue*: `app/main.py` creates tables `jobs_{ts}` and `companies_{ts}`. However, `api/app.py` queries `SELECT * FROM jobs` and `SELECT * FROM companies`. Neither `jobs` nor `companies` are ever created as tables or views in `sqlite-init.sql` (only `jobs_latest`, `jobs_all`, and `job_details` are created). The API will crash immediately upon querying. Furthermore, `sqlite-init.sql` contains a syntax error trying to query `FROM jobs` before it exists.
     *   *Fix*: Update `sqlite-init.sql` to explicitly create `jobs` and `companies` views that point to `jobs_latest` and `companies_latest`.
 *   **Database File Name Mismatch**:
-    *   *Status*: Done. Standardized `GUPY_DATABASE` default to `/app/out/gupy.db`.
+    *   *Status*: Done. Standardized `JOBHUBMINE_DATABASE` default to `/app/out/jobhubmine.db`.
 *   **Broken CI/CD Pipeline**:
     *   *Issue*: `.github/workflows/ci.yml` attempts to build using `-f Dockerfile.scraper`, but the file is actually named `Dockerfile` at the root.
     *   *Fix*: Update the GitHub Actions workflow to target the correct Dockerfile name.

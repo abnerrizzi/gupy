@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify, g
 
 app = Flask(__name__)
 
-DATABASE = os.environ.get('GUPY_DATABASE', '/app/out/gupy.db')
+DATABASE = os.environ.get('JOBHUBMINE_DATABASE', '/app/out/jobhubmine.db')
 
 
 def get_db():
