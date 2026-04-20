@@ -2,6 +2,21 @@
 
 A Dockerized pipeline to scrape, store, and browse job opportunities from Gupy and Inhire.
 
+## 🏗️ Architecture
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Scraper    │────▶│   SQLite     │◀────│     API      │
+│  (Python)    │     │   Database   │     │   (Flask)    │
+└──────────────┘     └──────────────┘     └──────────────┘
+                                                  │
+                                                  ▼
+                                         ┌──────────────┐
+                                         │     Web      │
+                                         │   (React)    │
+                                         └──────────────┘
+```
+
 ## 🚀 Getting Started (Docker)
 
 This system is designed to run in Docker. Ensure [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) are installed.
