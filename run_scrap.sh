@@ -1,7 +1,19 @@
 #!/bin/sh
+set -eu
 
 ts=$(date +%Y%m%d%H%M%S)
 folder=${1:-out}
+
+# Pre-flight checks: verify required files exist before starting
+if [ ! -f "sqlite-init.sql" ]; then
+  echo "Error: sqlite-init.sql not found"
+  exit 1
+fi
+
+if [ ! -x "app/main.py" ]; then
+  echo "Error: app/main.py not found or not executable"
+  exit 1
+fi
 
 # Validate timestamp is numeric only (prevent SQL injection via table names)
 case "$ts" in
@@ -12,17 +24,6 @@ esac
 folder="${folder%/}"
 mkdir -p "$folder"
 db_file="jobhubmine.db"
-
-# Pre-flight checks: verify required files exist before using them
-if [ ! -f "sqlite-init.sql" ]; then
-  echo "Error: sqlite-init.sql not found"
-  exit 1
-fi
-
-if [ ! -x "app/main.py" ]; then
-  echo "Error: app/main.py not found or not executable"
-  exit 1
-fi
 
 echo "Starting job scraping..."
 
