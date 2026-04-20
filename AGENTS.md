@@ -1,6 +1,6 @@
 # AGENTS.md - Development Guidelines
 
-This file contains guidelines for agentic coding agents working in this repository.
+This file contains critical instructions and guidelines for agentic coding agents (AI) working in this repository.
 
 ## Project Overview
 
@@ -10,20 +10,12 @@ This repository contains a job scraping system with three main components:
 - `web/` - React web UI for searching/filtering jobs
 - `run_scrap.sh` - Shell script to run the full scraping pipeline (via Docker)
 
-## Architecture
+## Core Mandates
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Scraper    │────▶│   SQLite     │◀────│     API      │
-│  (Python)    │     │   Database   │     │   (Flask)    │
-└──────────────┘     └──────────────┘     └──────────────┘
-                                                  │
-                                                  ▼
-                                         ┌──────────────┐
-                                         │     Web      │
-                                         │   (React)    │
-                                         └──────────────┘
-```
+1.  **DOCKER ONLY:** Agents MUST NOT run the application locally. Always use Docker Compose.
+2.  **CONVENTIONAL COMMITS:** Use `type(scope): description`. Types: `feat`, `fix`, `refactor`, `chore`, `docs`.
+3.  **SOURCE AGNOSTIC:** Use generic "data source" terminology. Config via `<SOURCE>_` prefix env vars.
+4.  **ABSOLUTE PATHS:** Always use absolute paths (e.g., `/home/abner.smartdb/src/jobhubmine/app/main.py`).
 
 ## Build/Lint/Test Commands
 
@@ -57,12 +49,11 @@ python3 -m py_compile app/main.py api/app.py
 flake8 app/main.py api/app.py
 
 # React
-cd web && npm run lint
+cd /home/abner.smartdb/src/jobhubmine/web && npm run lint
 ```
 
 ### Testing
-There are currently no automated test suites, so rely on manual validations. If `pytest` or `jest`/`react-scripts` testing are added, use the following commands:
-
+There is no automated test suite. Perform manual validation:
 ```bash
 # Run Python tests
 pytest
@@ -82,74 +73,35 @@ curl http://localhost:8080/api/filters
 ## Code Style Guidelines
 
 ### Python (Scraper & API)
-- **Formatting:** 4 spaces for indentation.
-- **Naming Conventions:** `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_SNAKE_CASE` for constants.
-- **Types:** Provide type hints for all function signatures.
-- **Strings:** Use f-strings for string interpolation.
-- **Imports Order:** 1. Standard library, 2. Third-party packages, 3. Local modules.
-- **Error Handling:** Use specific exception catches with clear logging. Avoid empty `except:` blocks.
-
-```python
-import os
-import sys
-import requests
-from typing import Dict, List, Tuple
-from concurrent.futures import ThreadPoolExecutor
-
-def fetch_and_process_job_data(company: Dict) -> Tuple[Dict, List[Dict]]:
-    """Fetches job data for a specific company."""
-    try:
-        company_id: str = company.get('companyId', '')
-        # logic here
-        return company_data, job_data_list
-    except requests.RequestException as e:
-        print(f"Error fetching data: {e}")
-        raise
-```
+- **Formatting:** 4 spaces, UTF-8.
+- **Imports:** Standard Library -> Third-party -> Local. Use absolute imports if possible.
+- **Naming:** `snake_case` (vars/funcs), `PascalCase` (classes), `UPPER_SNAKE_CASE` (constants).
+- **Types:** REQUIRED for all function signatures. Use `typing` module (Dict, List, Optional).
+- **Error Handling:** Use `try...except` with specific exceptions. Log errors with `logger.error(..., exc_info=True)`.
+- **Logic:** Use `Scraper` base class for new sources. Respect `RATE_LIMIT_SLEEP`.
 
 ### React (Web UI)
-- **Components:** Use functional components with React hooks.
-- **Naming Conventions:** `PascalCase` for component names and files (`.jsx`), `camelCase` for props and variables.
-- **Styles:** Use CSS modules or styled-components.
+- **Components:** Functional components with Hooks ONLY. No class components.
+- **Naming:** `PascalCase` for files/components. `camelCase` for props.
+- **Props:** Use `prop-types` for validation.
+- **API Calls:** Use `fetch` inside `useEffect`. Handle loading/error states.
 
-```jsx
-function JobSearch({ value, onChange }) {
-  return <input value={value} onChange={onChange} />;
-}
-```
-
-### Shell Scripts
-- Use `#!/bin/sh` for portability.
-- Check file existence (`[ ! -f ... ]`) and executability.
-- Always use proper variable quoting (e.g., `"$folder"` instead of `$folder`).
-
-## Git & Commit Conventions
-
-The project follows the **Conventional Commits Format**.
-- **Format:** `type(scope): description`
-- **Types:** `feat` (new feature), `fix` (bug fix), `refactor` (code refactoring), `chore` (maintenance, tooling), `docs` (documentation).
-- **Example:** `feat(search): add 200ms debounce`
-- Use the `auto-commit` skill (`.skills/auto-commit.md`) for automatic commits.
-- **Exclusions:** Never commit generated output files (`out/`, `*.db`, `*.csv`), logs, or node_modules.
+### SQL / Database
+- **Schema:** Managed via `/home/abner.smartdb/src/jobhubmine/sqlite-init.sql`.
+- **Conventions:** Dynamic tables use `_{timestamp}` suffix. Permanent views are `jobs_all` and `companies_all`.
 
 ## File Organization
-
 ```
 /home/abner.smartdb/src/jobhubmine/
-├── app/              # Python Scraper
-├── api/              # Flask API
-├── web/              # React UI
-├── docker-compose.yml
-├── run_scrap.sh
-├── sqlite-init.sql
-├── .skills/          # Agent skills
-└── out/              # Output (ignored in git)
+├── app/              # Scraper logic (main.py, requirements.txt)
+├── api/              # Flask API (app.py, requirements.txt)
+├── web/              # React Frontend (src/, public/, package.json)
+├── out/              # Data output (SQLite, CSVs) - GIT IGNORED
+├── run_scrap.sh      # Pipeline entry point
+└── docker-compose.yml
 ```
 
-## CI/CD
-
-GitHub Actions (`.github/workflows/ci.yml`):
-1. Builds scraper, API, and web images
-2. Pushes to GHCR
-3. Runs scraper in CI
-4. Uploads SQLite as artifact
+## Security & Environment
+- **NO SECRETS:** Do not commit `.env` or hardcoded keys.
+- **ENV VARS:** Use `os.environ.get('VAR', default)` in Python.
+- **TIMEOUTS:** Always set `timeout` on network requests (e.g., `requests.get(..., timeout=30)`).
