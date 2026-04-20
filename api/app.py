@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify, g
 
 app = Flask(__name__)
 
-DATABASE = os.environ.get('GUPY_DATABASE', '/app/out/gupy.db')
+DATABASE = os.environ.get('JOBHUBMINE_DATABASE', '/app/out/jobhubmine.db')
 
 
 def get_db():
@@ -30,6 +30,91 @@ def row_to_dict(row):
 
 def rows_to_list(rows):
     return [row_to_dict(row) for row in rows]
+
+
+def build_filters(args):
+    """Build WHERE clause and params from request arguments"""
+    where_clauses = []
+    params = []
+
+    filters = {
+        'search': ('j.title LIKE ?', lambda v: f'%{v}%'),
+        'company_id': ('j.company_id = ?', None),
+        'city': ('j.workplace_city = ?', None),
+        'state': ('j.workplace_state = ?', None),
+        'department': ('j.department = ?', None),
+        'workplace_type': ('j.workplace_type = ?', None),
+        'type': ('j.type = ?', None),
+        'source': ('j.source = ?', None),
+        'workplace_type_label': (None, None), # Handled separately
+        'job_type_label': (None, None) # Handled separately
+    }
+
+    for arg_name, (clause, transform) in filters.items():
+        if clause is None: continue
+        value = args.get(arg_name)
+        if value:
+            where_clauses.append(clause)
+            params.append(transform(value) if transform else value)
+
+    # Handle grouped labels for workplace_type
+    wp_label = args.get('workplaceType') # Frontend sends 'workplaceType'
+    if wp_label:
+        if wp_label == 'Presencial':
+            where_clauses.append("LOWER(j.workplace_type) IN ('on-site', 'presencial')")
+        elif wp_label == 'Remoto':
+            where_clauses.append("LOWER(j.workplace_type) IN ('remote', 'remoto', 'home office')")
+        elif wp_label == 'Híbrido':
+            where_clauses.append("LOWER(j.workplace_type) IN ('hybrid', 'híbrido')")
+        else:
+            where_clauses.append("j.workplace_type = ?")
+            params.append(wp_label)
+
+    # Handle grouped labels for job_type
+    jt_label = args.get('jobType') # Frontend sends 'jobType'
+    if jt_label:
+        if jt_label == 'Efetiva':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_effective', 'efetivo', 'full-time')")
+        elif jt_label == 'Banco de Talentos':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_talent_pool', 'banco de talentos')")
+        elif jt_label == 'Estágio':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_internship', 'estágio', 'internship')")
+        elif jt_label == 'Jovem Aprendiz':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_apprentice', 'aprendiz')")
+        elif jt_label == 'Temporário':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_temporary', 'temporário')")
+        elif jt_label == 'Docente':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_lecturer', 'palestrante', 'docente')")
+        elif jt_label == 'PJ':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_legal_entity', 'pj')")
+        elif jt_label == 'Associado':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_associate', 'associado')")
+        elif jt_label == 'Autônomo':
+            where_clauses.append("LOWER(j.type) IN ('vacancy_type_autonomous', 'autônomo')")
+        elif jt_label == 'Outros':
+            where_clauses.append("(j.type IS NULL OR j.type = '' OR j.type = 'N/A')")
+        else:
+            where_clauses.append("j.type = ?")
+            params.append(jt_label)
+
+    where_str = ""
+    if where_clauses:
+        where_str = " AND " + " AND ".join(where_clauses)
+
+    return where_str, params
+
+
+def safe_int(val, default, min_val=None, max_val=None):
+    """Safely cast value to int with bounds"""
+    try:
+        res = int(val)
+        if min_val is not None:
+            res = max(res, min_val)
+        if max_val is not None:
+            res = min(res, max_val)
+        return res
+    except (ValueError, TypeError):
+        return default
 
 
 @app.route('/api/health')
@@ -61,7 +146,9 @@ def get_jobs():
     db = get_db()
     cursor = db.cursor()
 
-    query = """
+    where_str, params = build_filters(request.args)
+
+    query = f"""
         SELECT 
             j.*, 
             c.name as company_name, 
@@ -69,89 +156,23 @@ def get_jobs():
             c.career_page_url as company_url
         FROM jobs_all j
         LEFT JOIN companies_all c ON j.company_id = c.id
-        WHERE 1=1
+        WHERE 1=1 {where_str}
     """
-    params = []
 
-    search = request.args.get('search')
-    if search:
-        query += " AND j.title LIKE ?"
-        params.append(f'%{search}%')
+    limit = safe_int(request.args.get('limit'), 100, min_val=1, max_val=1000)
+    offset = safe_int(request.args.get('offset'), 0, min_val=0)
 
-    company_id = request.args.get('company_id')
-    if company_id:
-        query += " AND j.company_id = ?"
-        params.append(company_id)
-
-    city = request.args.get('city')
-    if city:
-        query += " AND j.workplace_city = ?"
-        params.append(city)
-
-    state = request.args.get('state')
-    if state:
-        query += " AND j.workplace_state = ?"
-        params.append(state)
-
-    department = request.args.get('department')
-    if department:
-        query += " AND j.department = ?"
-        params.append(department)
-
-    workplace_type = request.args.get('workplace_type')
-    if workplace_type:
-        query += " AND j.workplace_type = ?"
-        params.append(workplace_type)
-
-    job_type = request.args.get('type')
-    if job_type:
-        query += " AND j.type = ?"
-        params.append(job_type)
+    # For count, we reuse the same filter logic but must adjust column names if necessary
+    # (In this case jobs_all has all columns, so j. prefix from build_filters is fine if we alias)
+    count_query = f"SELECT COUNT(*) FROM jobs_all j WHERE 1=1 {where_str}"
     
-    source = request.args.get('source')
-    if source:
-        query += " AND j.source = ?"
-        params.append(source)
-
-    limit = int(request.args.get('limit', 100))
-    offset = int(request.args.get('offset', 0))
-
-    # For count, we need a simpler query or wrap the one above
-    count_query = f"SELECT COUNT(*) FROM jobs_all j WHERE 1=1"
-    # Re-apply filters to count_query
-    count_params = []
-    if search:
-        count_query += " AND title LIKE ?"
-        count_params.append(f'%{search}%')
-    if company_id:
-        count_query += " AND company_id = ?"
-        count_params.append(company_id)
-    if city:
-        count_query += " AND workplace_city = ?"
-        count_params.append(city)
-    if state:
-        count_query += " AND workplace_state = ?"
-        count_params.append(state)
-    if department:
-        count_query += " AND department = ?"
-        count_params.append(department)
-    if workplace_type:
-        count_query += " AND workplace_type = ?"
-        count_params.append(workplace_type)
-    if job_type:
-        count_query += " AND type = ?"
-        count_params.append(job_type)
-    if source:
-        count_query += " AND source = ?"
-        count_params.append(source)
-
-    cursor.execute(count_query, count_params)
+    cursor.execute(count_query, params)
     total = cursor.fetchone()[0]
 
     query += " ORDER BY j.title LIMIT ? OFFSET ?"
-    params.extend([limit, offset])
+    query_params = params + [limit, offset]
 
-    cursor.execute(query, params)
+    cursor.execute(query, query_params)
     rows = cursor.fetchall()
     jobs = []
     for row in rows:
@@ -251,5 +272,5 @@ def get_job(job_id):
 if __name__ == '__main__':
     host = os.environ.get('HOST', '0.0.0.0')
     port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('DEBUG', 'true').lower() == 'true'
+    debug = os.environ.get('DEBUG', 'false').lower() == 'true'
     app.run(host=host, port=port, debug=debug)

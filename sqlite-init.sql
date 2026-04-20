@@ -1,5 +1,7 @@
 -- 1. BASE SCHEMA INITIALIZATION
 -- Create the persistent "all" tables if they don't exist yet.
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS jobs_all (
     id TEXT PRIMARY KEY,
     company_id TEXT,
@@ -11,6 +13,15 @@ CREATE TABLE IF NOT EXISTS jobs_all (
     workplace_type TEXT,
     source TEXT
 );
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_jobs_company_id ON jobs_all(company_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_city ON jobs_all(workplace_city);
+CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs_all(workplace_state);
+CREATE INDEX IF NOT EXISTS idx_jobs_dept ON jobs_all(department);
+CREATE INDEX IF NOT EXISTS idx_jobs_wp_type ON jobs_all(workplace_type);
+CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs_all(type);
+CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs_all(source);
 
 CREATE TABLE IF NOT EXISTS companies_all (
     id TEXT PRIMARY KEY,
@@ -48,10 +59,10 @@ CREATE TABLE IF NOT EXISTS companies_${ts} (
 -- 3. DATA MIGRATION
 -- Migration from current run to 'all' tables
 -- If ${ts} is 0, this does nothing.
-INSERT OR IGNORE INTO jobs_all 
+INSERT OR REPLACE INTO jobs_all 
 SELECT * FROM jobs_${ts} WHERE '${ts}' != '0';
 
-INSERT OR IGNORE INTO companies_all 
+INSERT OR REPLACE INTO companies_all 
 SELECT * FROM companies_${ts} WHERE '${ts}' != '0';
 
 -- 4. UPDATE VIEWS
@@ -104,6 +115,8 @@ CREATE VIEW job_details AS
         jobs_all j
     LEFT JOIN
         companies_all c ON j.company_id = c.id;
+
+COMMIT;
 
 -- 5. ANALYTICS
 -- Summary statistics

@@ -1,97 +1,91 @@
 import React from 'react';
+import PropTypes from 'prop-types';
+import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
 function JobDetails({ job, company, onClose }) {
   if (!job) return null;
 
-  const formatWorkplaceType = (type) => {
-    if (!type) return 'N/A';
-    switch (type.toLowerCase()) {
-      case 'on-site':
-      case 'presencial':
-        return 'Presencial';
-      case 'remote':
-      case 'remoto':
-      case 'home office':
-        return 'Remoto';
-      case 'hybrid':
-      case 'híbrido':
-        return 'Híbrido';
-      default:
-        return type;
-    }
-  };
-
-  const formatJobType = (type) => {
-    if (!type) return 'N/A';
-    switch (type.toLowerCase()) {
-      case 'vacancy_type_effective':
-      case 'efetivo':
-      case 'full-time':
-        return 'Efetiva';
-      case 'vacancy_type_talent_pool':
-      case 'banco de talentos':
-        return 'Banco de Talentos';
-      case 'estágio':
-      case 'internship':
-        return 'Estágio';
-      default:
-        return type;
-    }
-  };
-
   return (
-    <div className="JobDetails-overlay" onClick={onClose}>
-      <div className="JobDetails" onClick={(e) => e.stopPropagation()}>
-        <button className="JobDetails-close" onClick={onClose}>
-          &times;
-        </button>
-
-        {company?.logo_url && (
-          <div className="JobDetails-logo">
-            <img src={company.logo_url} alt={company.name} />
-          </div>
-        )}
-
-        <h2>{job.job_title}</h2>
-
-        <div className="JobDetails-info">
+    <div className="job-details-overlay">
+      <div className="job-details-modal">
+        <button className="close-button" onClick={onClose}>&times;</button>
+        
+        <div className="job-details-header">
+          {company?.logo_url && (
+            <img src={company.logo_url} alt={company.name} className="company-logo" />
+          )}
           <div>
-            <label>Empresa:</label>
-            {company?.name || job.company_name || job.company_id}
-          </div>
-          <div>
-            <label>Local:</label>
-            {job.workplace_city}, {job.workplace_state}
-          </div>
-          <div>
-            <label>Departamento:</label>
-            {job.job_department}
-          </div>
-          <div>
-            <label>Tipo de trabalho:</label>
-            {formatWorkplaceType(job.workplace_type)}
-          </div>
-          <div>
-            <label>Tipo de vaga:</label>
-            {formatJobType(job.job_type)}
-          </div>
-          <div>
-            <label>Fonte:</label>
-            <strong>{job.source?.toUpperCase()}</strong>
+            <h2>{job.job_title}</h2>
+            <h3>{job.company_name}</h3>
           </div>
         </div>
 
-        <a
-          className="JobDetails-apply"
-          href={job.job_url}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Candidatar-se na {job.source === 'gupy' ? 'Gupy' : 'Inhire'}
-        </a>
+        <div className="job-details-body">
+          <div className="info-grid">
+            <div className="info-item">
+              <strong>Localização:</strong>
+              <span>
+                {job.workplace_city && job.workplace_state
+                  ? `${job.workplace_city}, ${job.workplace_state}`
+                  : job.workplace_city || job.workplace_state || 'N/A'}
+              </span>
+            </div>
+            <div className="info-item">
+              <strong>Departamento:</strong>
+              <span>{job.job_department || 'N/A'}</span>
+            </div>
+            <div className="info-item">
+              <strong>Tipo de Vaga:</strong>
+              <span>{formatJobType(job.job_type)}</span>
+            </div>
+            <div className="info-item">
+              <strong>Modalidade:</strong>
+              <span>{formatWorkplaceType(job.workplace_type)}</span>
+            </div>
+            <div className="info-item">
+              <strong>Fonte:</strong>
+              <span>{job.source || 'Gupy'}</span>
+            </div>
+          </div>
+
+          {job.job_url && (
+            <div className="job-action">
+              <a 
+                href={job.job_url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="apply-button"
+              >
+                Ver vaga no site original
+              </a>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+JobDetails.propTypes = {
+  job: PropTypes.shape({
+    job_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    job_title: PropTypes.string.isRequired,
+    job_url: PropTypes.string,
+    company_name: PropTypes.string,
+    company_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    workplace_city: PropTypes.string,
+    workplace_state: PropTypes.string,
+    job_department: PropTypes.string,
+    workplace_type: PropTypes.string,
+    job_type: PropTypes.string,
+    source: PropTypes.string,
+  }),
+  company: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string,
+    logo_url: PropTypes.string,
+  }),
+  onClose: PropTypes.func.isRequired,
+};
 
 export default JobDetails;

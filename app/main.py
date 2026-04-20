@@ -1,20 +1,34 @@
 import os
 import sys
+import re
 import requests
 import json
 import sqlite3
 import tqdm
-import threading
 import time
+import logging
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # Constants
 GUPY_LIMIT = int(os.environ.get('GUPY_COMPANY_LIMIT', 30))
 INHIRE_LIMIT = int(os.environ.get('INHIRE_COMPANY_LIMIT', 10))
 THREADS = int(os.environ.get('GUPY_THREADS', 16))
+GUPY_TIMEOUT = 30
+INHIRE_TIMEOUT = 15
+RATE_LIMIT_SLEEP = 2
 
 class Scraper:
     def __init__(self, session):
@@ -38,11 +52,11 @@ class GupyScraper(Scraper):
         # We use a separate limit for Gupy if needed, but here we respect self.limit
         url = f'https://portal.api.gupy.io/api/company?limit={self.limit}'
         try:
-            response = self.session.get(url, timeout=30)
+            response = self.session.get(url, timeout=GUPY_TIMEOUT)
             response.raise_for_status()
             return response.json().get('data', [])
         except Exception as e:
-            print(f"Failed to fetch Gupy company list: {e}")
+            logger.error(f"Failed to fetch Gupy company list: {e}")
             return []
 
     def fetch_jobs(self, company):
@@ -56,7 +70,8 @@ class GupyScraper(Scraper):
         
         if company_career_page_url:
             try:
-                job_response = self.session.get(company_career_page_url, timeout=15)
+                job_response = self.session.get(company_career_page_url, timeout=GUPY_TIMEOUT)
+                job_response.raise_for_status()
                 soup = BeautifulSoup(job_response.content, 'html.parser')
                 script_tag = soup.find('script', {'id': '__NEXT_DATA__'})            
                 if script_tag:
@@ -69,14 +84,15 @@ class GupyScraper(Scraper):
                         job_title = job.get('title', 'N/A')
                         job_type = job.get('type', 'N/A')
                         department = job.get('department', 'N/A')                    
-                        workplace_city = job.get('workplace', {}).get('address', {}).get('city', 'N/A')
-                        workplace_state = job.get('workplace', {}).get('address', {}).get('state', 'N/A')
+                        workplace = job.get('workplace', {}).get('address', {})
+                        workplace_city = workplace.get('city', 'N/A')
+                        workplace_state = workplace.get('state', 'N/A')
                         workplace_type = job.get('workplace', {}).get('workplaceType', 'N/A')
                         
                         job_tuples.append((job_id, company_id, job_title, job_type, department, workplace_city, workplace_state, workplace_type, self.source_name))
             
             except Exception as e:
-                print(f"Error processing Gupy jobs for company {company_id}: {e}")
+                logger.error(f"Error processing Gupy jobs for company {company_id}: {e}")
         
         return company_tuple, job_tuples
 
@@ -89,7 +105,7 @@ class InhireScraper(Scraper):
     def fetch_companies(self):
         url = "https://carreira.inhire.com.br/carreiras/"
         try:
-            response = self.session.get(url, timeout=30)
+            response = self.session.get(url, timeout=INHIRE_TIMEOUT)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'html.parser')
             links = soup.select('li.page_item a')
@@ -109,10 +125,10 @@ class InhireScraper(Scraper):
             companies.insert(0, {'tenant': 'yandeh', 'name': 'Yandeh', 'url': 'https://carreira.inhire.com.br/carreiras/yandeh/'})
             # For Inhire, we fetch based on INHIRE_LIMIT
             limited_companies = companies[:self.limit]
-            print(f"DEBUG: Limited to {len(limited_companies)} companies")
+            logger.debug(f"Limited to {len(limited_companies)} companies")
             return limited_companies
         except Exception as e:
-            print(f"Failed to fetch Inhire company list: {e}")
+            logger.error(f"Failed to fetch Inhire company list: {e}")
             return []
 
     def fetch_jobs(self, company):
@@ -123,7 +139,7 @@ class InhireScraper(Scraper):
         job_tuples = []
         
         # Small delay to avoid aggressive rate limiting
-        time.sleep(2)
+        time.sleep(RATE_LIMIT_SLEEP)
 
         # Try to find the actual inhire.app URL in the WP page
         try:
@@ -133,7 +149,7 @@ class InhireScraper(Scraper):
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                 'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
             }
-            resp = self.session.get(wp_url, headers=wp_headers, timeout=10)
+            resp = self.session.get(wp_url, headers=wp_headers, timeout=INHIRE_TIMEOUT)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.content, 'html.parser')
                 # Look for potential JSON data in scripts
@@ -151,8 +167,8 @@ class InhireScraper(Scraper):
                         if parts[1] == 'inhire' and parts[2] == 'app':
                             tenant = parts[0]
                             break
-        except:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not extract tenant from WP page for {wp_url}: {e}")
 
         # Inhire API URL
         api_url = "https://api.inhire.app/job-posts/public/pages"
@@ -175,21 +191,21 @@ class InhireScraper(Scraper):
                 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
                 'x-tenant': tenant
             }
-            response = self.session.get(api_url, headers=headers, timeout=15)
+            response = self.session.get(api_url, headers=headers, timeout=INHIRE_TIMEOUT)
             if response.status_code == 200:
                 data = response.json()
-                print(f"DEBUG: API response for {tenant} keys: {list(data.keys())}")
+                logger.debug(f"API response for {tenant} keys: {list(data.keys())}")
                 if 'data' in data:
-                     print(f"DEBUG: 'data' type: {type(data['data'])}")
+                     logger.debug(f"'data' type: {type(data['data'])}")
                      if isinstance(data['data'], list):
-                         print(f"DEBUG: 'data' length: {len(data['data'])}")
+                         logger.debug(f"'data' length: {len(data['data'])}")
                      elif isinstance(data['data'], dict):
-                         print(f"DEBUG: 'data' keys: {list(data['data'].keys())}")
+                         logger.debug(f"'data' keys: {list(data['data'].keys())}")
                 
                 # Jobs can be in 'data' or 'jobsPage' field
                 jobs = data.get('data', data.get('jobsPage', []))
                 
-                print(f"DEBUG: Found {len(jobs)} jobs for {tenant}")
+                logger.info(f"Found {len(jobs)} jobs for {tenant}")
                 if isinstance(jobs, list):
                     for job in jobs:
                         # Inhire uses 'jobId' or 'id', and 'displayName' or 'title'
@@ -215,12 +231,12 @@ class InhireScraper(Scraper):
                         
                         job_tuples.append((job_id, tenant, job_title, job_type, department, workplace_city, workplace_state, workplace_type, self.source_name))
             elif response.status_code == 403:
-                print(f"ERROR: Inhire API returned 403 for tenant {tenant}. Skipping.")
+                logger.warning(f"Inhire API returned 403 for tenant {tenant}. Skipping.")
             else:
                 # Log other non-200 responses
-                print(f"Inhire API returned {response.status_code} for tenant {tenant} (URL: {api_url})")
+                logger.warning(f"Inhire API returned {response.status_code} for tenant {tenant} (URL: {api_url})")
         except Exception as e:
-            print(f"Error processing Inhire jobs for {tenant}: {e}")
+            logger.error(f"Error processing Inhire jobs for {tenant}: {e}", exc_info=True)
             
         return company_tuple, job_tuples
 
@@ -271,17 +287,23 @@ def init_database_tables(db_path, ts):
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Error: Usage: main.py <ts> <folder> <db_file>")
+        logger.error("Usage: main.py <ts> <folder> <db_file>")
         sys.exit(1)
 
     ts = sys.argv[1]
     folder = sys.argv[2]
     db_file = sys.argv[3]
+
+    # Validate timestamp is numeric only (prevents SQL injection via table names)
+    if not re.match(r'^[0-9]+$', ts):
+        logger.error(f"timestamp must be numeric only, got: {ts}")
+        sys.exit(1)
+
     db_path = os.path.join(folder, db_file)
 
     # Debug env vars
-    print(f"GUPY_ENABLED: {os.environ.get('GUPY_ENABLED')}")
-    print(f"INHIRE_ENABLED: {os.environ.get('INHIRE_ENABLED')}")
+    logger.debug(f"GUPY_ENABLED: {os.environ.get('GUPY_ENABLED')}")
+    logger.debug(f"INHIRE_ENABLED: {os.environ.get('INHIRE_ENABLED')}")
 
     os.makedirs(folder, exist_ok=True)
     init_database_tables(db_path, ts)
@@ -298,16 +320,16 @@ if __name__ == "__main__":
         scrapers.append(InhireScraper(session))
     
     if not scrapers:
-        print("No scrapers enabled. Exiting.")
+        logger.warning("No scrapers enabled. Exiting.")
         sys.exit(0)
     
     all_companies = []
     all_jobs = []
     
     for scraper in scrapers:
-        print(f"Fetching companies from {scraper.source_name}...")
+        logger.info(f"Fetching companies from {scraper.source_name}...")
         companies = scraper.fetch_companies()
-        print(f"Found {len(companies)} companies in {scraper.source_name}")
+        logger.info(f"Found {len(companies)} companies in {scraper.source_name}")
         
         scraper_companies = 0
         scraper_jobs = 0
@@ -323,22 +345,24 @@ if __name__ == "__main__":
                     scraper_companies += 1
                     scraper_jobs += len(job_tuples)
                 except Exception as exc:
-                    print(f"Worker generated an exception: {exc}")
+                    logger.error(f"Worker generated an exception: {exc}", exc_info=True)
         
-        print(f"Collected {scraper_jobs} jobs from {scraper_companies} companies for {scraper.source_name}")
+        logger.info(f"Collected {scraper_jobs} jobs from {scraper_companies} companies for {scraper.source_name}")
 
     # Single transaction for all data
-    print(f"Inserting data into database: {len(all_companies)} companies, {len(all_jobs)} jobs...")
+    logger.info(f"Inserting data into database: {len(all_companies)} companies, {len(all_jobs)} jobs...")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     try:
         cursor.executemany(f"INSERT OR IGNORE INTO companies_{ts} (id, name, logo_url, career_page_url, company_data, source) VALUES (?, ?, ?, ?, ?, ?)", all_companies)
         cursor.executemany(f"INSERT OR IGNORE INTO jobs_{ts} (id, company_id, title, type, department, workplace_city, workplace_state, workplace_type, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", all_jobs)
         conn.commit()
+        logger.info("Database commit successful.")
     except Exception as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}", exc_info=True)
         conn.rollback()
+        sys.exit(1)
     finally:
         conn.close()
 
-    print(f"Total jobs scraped: {len(all_jobs)}")
+    logger.info(f"Total jobs scraped: {len(all_jobs)}")

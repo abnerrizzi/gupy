@@ -1,6 +1,7 @@
-FROM python:3.9-alpine
+FROM python:3.12-alpine
 
-RUN apk add sqlite
+RUN apk add --no-cache sqlite && \
+    adduser -D appuser
 
 WORKDIR /app
 
@@ -9,4 +10,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY api/app.py .
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 5000
+
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]

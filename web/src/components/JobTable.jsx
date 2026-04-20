@@ -1,123 +1,97 @@
 import React from 'react';
+import PropTypes from 'prop-types';
+import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
 function JobTable({ jobs, companies, loading, page, totalPages, onJobClick, onPageChange }) {
-  const getCompanyName = (companyId) => {
-    const company = companies.find(c => c.id === companyId);
-    return company ? company.name : companyId;
-  };
+  if (loading && jobs.length === 0) {
+    return <div className="loading">Carregando vagas...</div>;
+  }
 
-  const formatWorkplaceType = (type) => {
-    if (!type) return 'N/A';
-    switch (type.toLowerCase()) {
-      case 'on-site':
-      case 'presencial':
-        return 'Presencial';
-      case 'remote':
-      case 'remoto':
-      case 'home office':
-        return 'Remoto';
-      case 'hybrid':
-      case 'híbrido':
-        return 'Híbrido';
-      default:
-        return type;
-    }
-  };
-
-  const formatJobType = (type) => {
-    if (!type) return 'N/A';
-    switch (type.toLowerCase()) {
-      case 'vacancy_type_effective':
-      case 'efetivo':
-      case 'full-time':
-        return 'Efetiva';
-      case 'vacancy_type_talent_pool':
-      case 'banco de talentos':
-        return 'Banco de Talentos';
-      case 'estágio':
-      case 'internship':
-        return 'Estágio';
-      default:
-        return type;
-    }
-  };
+  if (!loading && jobs.length === 0) {
+    return <div className="no-jobs">Nenhuma vaga encontrada para os filtros selecionados.</div>;
+  }
 
   return (
-    <div className="JobTable">
-      <table>
+    <div className="job-table-container">
+      <table className="job-table">
         <thead>
           <tr>
-            <th>Vaga</th>
+            <th>Título</th>
             <th>Empresa</th>
-            <th>Local</th>
-            <th>Departamento</th>
+            <th>Localização</th>
             <th>Tipo</th>
+            <th>Modalidade</th>
             <th>Fonte</th>
           </tr>
         </thead>
         <tbody>
-          {loading ? (
-            <tr>
-              <td colSpan="6" className="loading">Carregando...</td>
+          {jobs.map((job) => (
+            <tr key={job.job_id} onClick={() => onJobClick(job)} className="job-row">
+              <td>{job.job_title}</td>
+              <td>{job.company_name}</td>
+              <td>
+                {job.workplace_city && job.workplace_state
+                  ? `${job.workplace_city}, ${job.workplace_state}`
+                  : job.workplace_city || job.workplace_state || 'N/A'}
+              </td>
+              <td>{formatJobType(job.job_type)}</td>
+              <td>
+                <span className={`tag tag-workplace-${(job.workplace_type || 'na').toLowerCase().replace('-', '')}`}>
+                  {formatWorkplaceType(job.workplace_type)}
+                </span>
+              </td>
+              <td>
+                <span className={`tag tag-source-${(job.source || 'gupy').toLowerCase()}`}>
+                  {(job.source || 'Gupy').toUpperCase()}
+                </span>
+              </td>
             </tr>
-          ) : jobs.length === 0 ? (
-            <tr>
-              <td colSpan="6" className="loading">Nenhuma vaga encontrada</td>
-            </tr>
-          ) : (
-            jobs.map((job) => (
-              <tr key={job.job_id} onClick={() => onJobClick(job)}>
-                <td>
-                  <a href={job.job_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                    {job.job_title}
-                  </a>
-                </td>
-                <td>{job.company_name || getCompanyName(job.company_id)}</td>
-                <td>
-                  {job.workplace_city}, {job.workplace_state}
-                </td>
-                <td>{job.job_department}</td>
-                <td>
-                  <span className={`type-${job.workplace_type}`}>
-                    {formatWorkplaceType(job.workplace_type)}
-                  </span>
-                  {' / '}
-                  <span className={`type-${job.job_type}`}>
-                    {formatJobType(job.job_type)}
-                  </span>
-                </td>
-                <td>
-                  <span className={`source-badge source-${job.source}`}>
-                    {job.source.toUpperCase()}
-                  </span>
-                </td>
-              </tr>
-            ))
-          )}
+          ))}
         </tbody>
       </table>
 
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button
-            disabled={page === 0}
-            onClick={() => onPageChange(page - 1)}
-          >
-            Anterior
-          </button>
-          <span>
-            Página {page + 1} de {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages - 1}
-            onClick={() => onPageChange(page + 1)}
-          >
-           Próxima
-          </button>
-        </div>
-      )}
+      <div className="pagination">
+        <button
+          disabled={page === 0}
+          onClick={() => onPageChange(page - 1)}
+        >
+          Anterior
+        </button>
+        <span>Página {page + 1} de {totalPages || 1}</span>
+        <button
+          disabled={page >= totalPages - 1}
+          onClick={() => onPageChange(page + 1)}
+        >
+          Próxima
+        </button>
+      </div>
     </div>
   );
 }
+
+JobTable.propTypes = {
+  jobs: PropTypes.arrayOf(PropTypes.shape({
+    job_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    job_title: PropTypes.string.isRequired,
+    job_url: PropTypes.string,
+    company_name: PropTypes.string,
+    company_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    workplace_city: PropTypes.string,
+    workplace_state: PropTypes.string,
+    job_department: PropTypes.string,
+    workplace_type: PropTypes.string,
+    job_type: PropTypes.string,
+    source: PropTypes.string,
+  })).isRequired,
+  companies: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    name: PropTypes.string.isRequired,
+  })).isRequired,
+  loading: PropTypes.bool.isRequired,
+  page: PropTypes.number.isRequired,
+  totalPages: PropTypes.number.isRequired,
+  onJobClick: PropTypes.func.isRequired,
+  onPageChange: PropTypes.func.isRequired,
+};
 
 export default JobTable;

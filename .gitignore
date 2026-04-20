@@ -1,7 +1,24 @@
+# Data and logs
 *.csv
 *.db
-.vscode
-.venv
 result.log
+out/
 .env
-out/*
+
+# Environments and dependencies
+.venv/
+node_modules/
+build/
+dist/
+
+# IDEs and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
