@@ -12,8 +12,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
+DEBUG = os.environ.get('DEBUG', '0') == '1'
+print(f"DEBUG environment variable: {os.environ.get('DEBUG', 'NOT SET')}, DEBUG flag: {DEBUG}")
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG if DEBUG else logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler(sys.stdout)]
 )
@@ -37,7 +40,7 @@ class Scraper:
     def fetch_companies(self):
         raise NotImplementedError
 
-    def fetch_jobs(self, company):
+    def fetch_jobs(self, company, folder):
         raise NotImplementedError
 
 
@@ -57,7 +60,9 @@ class LinkedInFirefoxScraper(Scraper):
             return False
 
         try:
+            logger.debug("Navigating to LinkedIn login page")
             self.driver.get("https://www.linkedin.com/login")
+            logger.debug("Waiting for username field")
             WebDriverWait(self.driver, 15).until(
                 EC.presence_of_element_located((By.ID, "username"))
             )
@@ -78,7 +83,7 @@ class LinkedInFirefoxScraper(Scraper):
             'url': 'https://www.linkedin.com/jobs'
         }]
 
-    def fetch_jobs(self, company):
+    def fetch_jobs(self, company, folder):
         job_tuples = []
         company_id = company['id']
         company_name = company['name']
@@ -90,7 +95,25 @@ class LinkedInFirefoxScraper(Scraper):
         location_enc = self.location.replace(' ', '%20')
         search_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords_enc}&location={location_enc}"
 
+        def save_debug_files(prefix):
+            logger.debug(f"save_debug_files called with prefix: {prefix}, DEBUG={DEBUG}")
+            if DEBUG:
+                try:
+                    # Save to current directory first to ensure it works
+                    ss_path = f"/app/out/{prefix}_screenshot.png"
+                    self.driver.save_screenshot(ss_path)
+                    logger.debug(f"Screenshot saved: {ss_path}")
+                    src_path = f"/app/out/{prefix}_page.html"
+                    with open(src_path, 'w', encoding='utf-8') as f:
+                        f.write(self.driver.page_source)
+                    logger.debug(f"Page source saved: {src_path}")
+                except Exception as e:
+                    logger.debug(f"Failed to save debug files: {e}", exc_info=True)
+            else:
+                logger.debug(f"DEBUG is False, not saving debug files for prefix: {prefix}")
+
         try:
+            logger.debug(f"Loading search URL: {search_url}")
             self.driver.get(search_url)
             time.sleep(3)
 
@@ -98,28 +121,37 @@ class LinkedInFirefoxScraper(Scraper):
             while len(job_tuples) < self.limit:
                 if start > 0:
                     scroll_url = f"{search_url}&start={start}"
+                    logger.debug(f"Loading page {start // 25 + 1}: {scroll_url}")
                     self.driver.get(scroll_url)
                     time.sleep(2)
 
                 try:
+                    logger.debug("Waiting for jobs-search-results-list container")
                     WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "jobs-search-results-list"))
                     )
                 except TimeoutException:
                     logger.warning("Jobs list container not found")
+                    logger.debug(f"Current URL: {self.driver.current_url}")
+                    logger.debug(f"Page title: {self.driver.title}")
+                    save_debug_files("jobs_list_missing")
                     break
 
+                logger.debug("Searching for job-card-container elements")
                 job_cards = self.driver.find_elements(By.CSS_SELECTOR, ".job-card-container")
 
                 if not job_cards:
                     logger.info("No more job cards found")
                     break
 
+                logger.debug(f"Found {len(job_cards)} job cards on page")
+
                 for card in job_cards:
                     if len(job_tuples) >= self.limit:
                         break
 
                     try:
+                        logger.debug("Extracting job card data")
                         title_elem = card.find_element(By.CSS_SELECTOR, ".job-card-list__title--link")
                         job_title = title_elem.text.strip()
                         job_link = title_elem.get_attribute("href")
@@ -161,6 +193,7 @@ class LinkedInFirefoxScraper(Scraper):
 
         except Exception as e:
             logger.error(f"Failed to fetch jobs: {e}")
+            save_debug_files("fetch_jobs_error")
 
         return company_tuple, job_tuples
 
@@ -233,7 +266,7 @@ def main(ts, folder, db_file):
         companies = scraper.fetch_companies()
 
         for company in companies:
-            company_tuple, job_tuples = scraper.fetch_jobs(company)
+            company_tuple, job_tuples = scraper.fetch_jobs(company, folder)
             all_companies.append(company_tuple)
             all_jobs.extend(job_tuples)
             time.sleep(RATE_LIMIT_SLEEP)

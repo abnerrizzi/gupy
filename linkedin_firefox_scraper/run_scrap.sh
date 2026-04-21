@@ -9,8 +9,13 @@ if [ ! -f "sqlite-init.sql" ]; then
   exit 1
 fi
 
-if [ ! -f "app/main.py" ]; then
-  echo "Error: app/main.py not found"
+if [ ! -f "main.py" ]; then
+  echo "Error: main.py not found"
+  exit 1
+fi
+
+if ! python3 -c "import selenium" 2>/dev/null; then
+  echo "Error: selenium not installed"
   exit 1
 fi
 
@@ -23,6 +28,7 @@ mkdir -p "$folder"
 
 db_file="jobhubmine.db"
 
+echo "DEBUG env var value: [$DEBUG]"
 echo "Starting LinkedIn Firefox scraper..."
 
 if [ ! -f "$folder/$db_file" ]; then
@@ -33,7 +39,7 @@ if [ ! -f "$folder/$db_file" ]; then
   rm -f "$temp_init_sql"
 fi
 
-python3 app/main.py "$ts" "$folder" "$db_file"
+python3 main.py "$ts" "$folder" "$db_file"
 
 if [ ! -f "${folder}/${db_file}" ]; then
   echo "Error: Database file was not created successfully"

@@ -4,6 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
     env_file: .env
+    environment:
+      - DEBUG=1
     command: ["./run_scrap.sh", "out"]
     volumes:
       - ./out:/app/out
