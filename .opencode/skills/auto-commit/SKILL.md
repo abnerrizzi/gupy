@@ -1,7 +1,20 @@
-# Auto-Commit Skill
+---
+name: auto-commit
+description: Commit changes using conventional commits format (feat, fix, refactor, chore, docs, test)
+license: MIT
+compatibility: opencode
+metadata:
+  audience: developers
+  workflow: git
+---
 
-## Trigger
-After completing any task or chunk of changes that modifies files. Use this skill when:
+## What I do
+- Stage all changes (tracked + untracked files)
+- Create commit messages following conventional commits format
+- Report commit hash after successful commit
+
+## When to use me
+Use this when:
 - User explicitly requests a commit
 - Task completion is confirmed by user
 - A logical chunk of work is finished
@@ -40,6 +53,7 @@ type(scope): description
 - `chore: update AGENTS.md with new structure`
 - `docs(api): add filter endpoint documentation`
 - `refactor(api): simplify job query builder`
+- `fix(#123): resolve null pointer...`
 
 ### Bad (>80 chars)
 - `feat(search): add 200ms debounce to prevent excessive API calls when user types in search field`
@@ -57,8 +71,6 @@ Skip these files/directories:
 
 ## Implementation Steps
 
-When commit is needed:
-
 1. **Check status**: Run `git status` to see all changes
 2. **Stage all**: Run `git add -A`
 3. **Create message**: Compose commit message following rules above
@@ -66,7 +78,6 @@ When commit is needed:
 5. **Report**: Show commit hash to user
 
 ## Notes
-
 - Always confirm with user before committing if not explicitly requested
 - If unsure about type, use `chore`
 - Include relevant issue numbers if applicable (e.g., `fix(#123): ...`)
