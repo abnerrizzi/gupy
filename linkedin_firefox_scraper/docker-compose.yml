@@ -1,0 +1,11 @@
+services:
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    command: ["python3", "app/main.py", "20240421120000", "out", "jobhubmine.db"]
+    volumes:
+      - ./out:/app/out
+    profiles:
+      - scraper
