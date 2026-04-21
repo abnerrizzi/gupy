@@ -3,7 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    user: "${UID:-1000}:${GID:-1000}"
     env_file: .env
     command: ["./run_scrap.sh", "out"]
     volumes:
