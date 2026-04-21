@@ -232,7 +232,10 @@ def init_database_tables(db_path, ts):
 
 def create_driver():
     options = Options()
-    options.add_argument("--headless")
+    if not DEBUG:
+        options.add_argument("--headless")
+    else:
+        logger.debug("Running Firefox in visible mode (not headless) for visual debugging")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")

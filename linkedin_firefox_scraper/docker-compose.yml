@@ -6,6 +6,8 @@ services:
     env_file: .env
     environment:
       - DEBUG=1
+    ports:
+      - "5900:5900"
     command: ["./run_scrap.sh", "out"]
     volumes:
       - ./out:/app/out

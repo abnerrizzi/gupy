@@ -31,6 +31,17 @@ db_file="jobhubmine.db"
 echo "DEBUG env var value: [$DEBUG]"
 echo "Starting LinkedIn Firefox scraper..."
 
+# Start VNC for visual debugging if DEBUG=1
+if [ "$DEBUG" = "1" ]; then
+  echo "Starting VNC for visual debugging..."
+  Xvfb :99 -screen 0 1024x768x24 &
+  XVFB_PID=$!
+  export DISPLAY=:99
+  sleep 1
+  x11vnc -display :99 -forever -shared -bg
+  echo "VNC available on port 5900"
+fi
+
 if [ ! -f "$folder/$db_file" ]; then
   echo "Initializing database schema..."
   temp_init_sql="/tmp/init-schema.sql"

@@ -33,7 +33,7 @@ COPY sqlite-init.sql /app/
 RUN chmod +x /app/run_scrap.sh
 
 # ---- Debug tools (OPTIONAL - only rebuild when explicitly changed) ----
-# Uncomment the lines below to enable VNC for watching the browser:
-# RUN apt-get update && apt-get install -y --no-install-recommends x11vnc xvfb fluxbox && rm -rf /var/lib/apt/lists/*
+# VNC for watching the browser:
+RUN apt-get update && apt-get install -y --no-install-recommends x11vnc xvfb fluxbox && rm -rf /var/lib/apt/lists/*
 
 CMD ["./run_scrap.sh", "out"]
