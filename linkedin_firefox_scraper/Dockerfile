@@ -12,14 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sqlite3 \
     bzip2 \
     unzip \
-    libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux64.tar.gz \
-    && tar -xf geckodriver-v0.34.0-linux64.tar.gz -C /usr/local/bin \
-    && rm geckodriver-v0.34.0-linux64.tar.gz
-
-RUN chmod +x /usr/local/bin/geckodriver
+RUN curl -sL https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux64.tar.gz | tar -xzf - -C /usr/local/bin && \
+    chmod +x /usr/local/bin/geckodriver
 
 WORKDIR /app
 
@@ -27,9 +24,8 @@ COPY app/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ /app/
-COPY *.sh /app/
+COPY run_scrap.sh /app/
 COPY sqlite-init.sql /app/
-
-RUN chmod +x /app/*.sh
+RUN chmod +x /app/run_scrap.sh
 
 CMD ["./run_scrap.sh", "out"]
