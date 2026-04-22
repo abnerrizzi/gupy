@@ -32,3 +32,42 @@ services:
     environment:
       - API_URL=http://api:5000
     restart: unless-stopped
+
+  firefox:
+    image: selenium/standalone-firefox:latest
+    shm_size: "2gb"
+    ports:
+      - "4444:4444"   # WebDriver endpoint
+      - "7900:7900"   # noVNC web viewer → http://localhost:7900
+      - "5900:5900"   # raw VNC → vnc://localhost:5900
+    environment:
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_VNC_NO_PASSWORD=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4444/wd/hub/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    profiles:
+      - selenium
+
+  scraper-selenium:
+    build:
+      context: ./scraper-selenium
+      dockerfile: Dockerfile
+    depends_on:
+      firefox:
+        condition: service_healthy
+    env_file:
+      - scraper-selenium/.env.selenium.sample
+      - path: scraper-selenium/.env
+        required: false
+    environment:
+      - SELENIUM_URL=http://firefox:4444/wd/hub
+    volumes:
+      - ./scraper-selenium/logs:/app/logs
+      - ./out/selenium:/app/out
+    restart: "no"
+    profiles:
+      - selenium
