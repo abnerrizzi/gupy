@@ -34,6 +34,7 @@ class LinkedInSeleniumScraper:
             "position": 1,
             "pageNum": 0,
             "f_TPR": config.LINKEDIN_TIME_FILTER,
+            "sortBy": config.LINKEDIN_SORT_BY,
         })
         return f"{_SEARCH_BASE}?{params}"
 
