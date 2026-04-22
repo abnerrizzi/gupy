@@ -112,18 +112,28 @@ class LinkedInSeleniumScraper:
             if len(cards) >= limit:
                 break
 
-            # Try to load more via button, then scroll the last card into view
-            # to trigger LinkedIn's lazy loader; fall back to full-page scroll
+            # Try the "show more" button first; otherwise scroll the last card
+            # into view and wait for the lazy loader to deliver new cards.
             if not self._click_show_more():
                 if cards:
                     self.driver.execute_script(
                         "arguments[0].scrollIntoView({block: 'end', behavior: 'smooth'});",
                         cards[-1],
                     )
+                    current_count = len(cards)
+                    try:
+                        WebDriverWait(self.driver, 10).until(
+                            lambda d: len(
+                                d.find_elements(By.CSS_SELECTOR, "ul.jobs-search__results-list li")
+                            ) > current_count
+                        )
+                        logger.debug("New cards loaded after scroll")
+                    except TimeoutException:
+                        logger.debug("No new cards loaded within wait period")
                 else:
                     self.session.scroll_incremental()
+                    self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
 
-            self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
             self.dismiss_ads()
 
             if detect_rate_limit(self.driver):
