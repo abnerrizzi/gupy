@@ -1,5 +1,8 @@
 import logging
+import os
+import re
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 from urllib.parse import urlencode
 
@@ -51,8 +54,16 @@ class LinkedInSeleniumScraper:
         if detect_rate_limit(self.driver):
             return False
 
+        self._save_page_source("search")
         self.dismiss_ads()
         return True
+
+    def _save_page_source(self, label: str) -> None:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(config.LOG_DIR, f"page_{label}_{ts}.html")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(self.driver.page_source)
+        logger.info("Page source saved → %s", path)
 
     def scroll_and_collect_cards(self, limit: int) -> List[Any]:
         cards: List[Any] = []
@@ -160,8 +171,6 @@ class LinkedInSeleniumScraper:
         return {}
 
     def scrape(self, keywords: str, location: str, limit: int) -> List[Dict[str, Any]]:
-        from datetime import datetime, timezone
-
         logger.info("Scrape session start — keywords=%r location=%r limit=%d", keywords, location, limit)
         url = self.build_search_url(keywords, location)
 
