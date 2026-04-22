@@ -60,8 +60,8 @@ services:
       firefox:
         condition: service_healthy
     env_file:
-      - scraper-selenium/.env.selenium.sample
-      - path: scraper-selenium/.env
+      - .env_sample
+      - path: .env
         required: false
     environment:
       - SELENIUM_URL=http://firefox:4444/wd/hub
