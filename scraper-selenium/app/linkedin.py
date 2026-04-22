@@ -116,30 +116,30 @@ class LinkedInSeleniumScraper:
             if len(cards) >= limit:
                 break
 
-            # Try the "show more" button first; otherwise scroll the last card
-            # into view and wait for the lazy loader to deliver new cards.
-            if not self._click_show_more():
-                if cards:
-                    logger.info("[iter %d] scrolling to card #%d", iteration, len(cards))
-                    self.driver.execute_script(
-                        "arguments[0].scrollIntoView({block: 'end', behavior: 'smooth'});",
-                        cards[-1],
+            # Scroll the last card into view first; fall back to the "show more"
+            # button only if the scroll does not deliver new cards.
+            if cards:
+                logger.info("[iter %d] scrolling to card #%d", iteration, len(cards))
+                self.driver.execute_script(
+                    "arguments[0].scrollIntoView({block: 'end', behavior: 'smooth'});",
+                    cards[-1],
+                )
+                current_count = len(cards)
+                logger.info("[iter %d] waiting for new cards (current: %d)...", iteration, current_count)
+                try:
+                    WebDriverWait(self.driver, 8).until(
+                        lambda d: len(
+                            d.find_elements(By.CSS_SELECTOR, "ul.jobs-search__results-list li")
+                        ) > current_count
                     )
-                    current_count = len(cards)
-                    logger.info("[iter %d] waiting for new cards (current: %d)...", iteration, current_count)
-                    try:
-                        WebDriverWait(self.driver, 10).until(
-                            lambda d: len(
-                                d.find_elements(By.CSS_SELECTOR, "ul.jobs-search__results-list li")
-                            ) > current_count
-                        )
-                        logger.info("[iter %d] new cards detected", iteration)
-                    except TimeoutException:
-                        logger.info("[iter %d] timed out — no new cards loaded", iteration)
-                else:
-                    logger.info("[iter %d] no cards yet — full page scroll", iteration)
-                    self.session.scroll_incremental()
-                    self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
+                    logger.info("[iter %d] new cards detected after scroll", iteration)
+                except TimeoutException:
+                    logger.info("[iter %d] scroll timed out — trying 'show more' button", iteration)
+                    self._click_show_more()
+            else:
+                logger.info("[iter %d] no cards yet — full page scroll", iteration)
+                self.session.scroll_incremental()
+                self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
 
             self.dismiss_ads()
 
