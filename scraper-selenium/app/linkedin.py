@@ -145,8 +145,21 @@ class LinkedInSeleniumScraper:
             )
 
             if live_count <= cursor:
-                logger.info("No new cards loaded — done")
-                break
+                for attempt in range(1, config.SCROLL_WAIT_RETRIES + 1):
+                    logger.info(
+                        "No new cards yet — waiting %.1fs (attempt %d/%d)",
+                        config.SCROLL_WAIT_SECONDS, attempt, config.SCROLL_WAIT_RETRIES,
+                    )
+                    time.sleep(config.SCROLL_WAIT_SECONDS)
+                    live_count = len(self.driver.find_elements(
+                        By.CSS_SELECTOR, "ul.jobs-search__results-list li"
+                    ))
+                    if live_count > cursor:
+                        logger.info("+%d new cards appeared after wait", live_count - cursor)
+                        break
+                else:
+                    logger.info("No new cards after %d retries — done", config.SCROLL_WAIT_RETRIES)
+                    break
 
             logger.info("+%d new cards detected, continuing...", live_count - cursor)
 
