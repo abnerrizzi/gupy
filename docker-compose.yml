@@ -51,7 +51,7 @@ services:
       start_period: 15s
     restart: "no"
 
-  scraper-selenium:
+  scraper-linkedin:
     build:
       context: ./scrapers/linkedin-ff-selenium
       dockerfile: Dockerfile

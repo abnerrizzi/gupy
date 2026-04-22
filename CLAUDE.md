@@ -25,9 +25,9 @@ docker compose build api web && docker compose up -d --force-recreate api web
 docker compose run --rm scraper
 
 # Run Selenium-based LinkedIn scraper
-docker compose build scraper-selenium
+docker compose build scraper-linkedin
 docker compose up -d firefox          # start browser, wait for healthy
-docker compose run --rm scraper-selenium
+docker compose run --rm scraper-linkedin
 # Inspect browser live at http://localhost:7900 (noVNC, no password)
 ```
 
@@ -62,7 +62,7 @@ Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (
 ```
 
 - **Scraper** (`app/main.py`) — runs on-demand via `docker compose run`. `GupyScraper`, `InhireScraper`, and `LinkedInScraper` subclass `Scraper`, which defines `fetch_companies()` and `fetch_jobs(company)`. A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
-- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper defined in the unified compose file with `restart: "no"` so it doesn't autostart on `up`. Run on demand via `docker compose run --rm scraper-selenium` (`firefox` service starts automatically as a `depends_on` dependency). Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
+- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper defined in the unified compose file with `restart: "no"` so it doesn't autostart on `up`. Run on demand via `docker compose run --rm scraper-linkedin` (`firefox` service starts automatically as a `depends_on` dependency). Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
 - **API** (`api/app.py`) — five read-only Flask endpoints served by 2 Gunicorn workers. Filter logic is built dynamically in `build_filters()`.
 - **Web** (`web/src/`) — React SPA, state in `App.js`. Nginx proxies `/api/*` to Flask, eliminating CORS. `entrypoint.sh` injects `API_URL` at container start.
 
@@ -108,7 +108,7 @@ Each scraper run creates `jobs_{ts}` and `companies_{ts}` timestamped tables. `r
 | `api/app.py` | Flask endpoints and `build_filters()` helper |
 | `sqlite-init.sql` | Full DB schema — changes need migration planning |
 | `run_scrap.sh` | Validates timestamp, runs schema init, merges timestamped tables into `_all` |
-| `docker-compose.yml` | All service definitions (`scraper`, `api`, `web`, `firefox`, `scraper-selenium`) |
+| `docker-compose.yml` | All service definitions (`scraper`, `api`, `web`, `firefox`, `scraper-linkedin`) |
 | `.env_sample` | Unified env var defaults for all services |
 | `scrapers/linkedin-ff-selenium/app/linkedin.py` | Selenium scraper core logic |
 | `scrapers/linkedin-ff-selenium/app/config.py` | All Selenium scraper config with defaults |
