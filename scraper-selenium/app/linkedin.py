@@ -28,7 +28,13 @@ class LinkedInSeleniumScraper:
         self.driver = session.driver
 
     def build_search_url(self, keywords: str, location: str) -> str:
-        params = urlencode({"keywords": keywords, "location": location, "position": 1, "pageNum": 0})
+        params = urlencode({
+            "keywords": keywords,
+            "location": location,
+            "position": 1,
+            "pageNum": 0,
+            "f_TPR": config.LINKEDIN_TIME_FILTER,
+        })
         return f"{_SEARCH_BASE}?{params}"
 
     def load_search_page(self, url: str) -> bool:

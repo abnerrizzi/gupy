@@ -9,6 +9,7 @@ IMPLICIT_WAIT: int = int(os.environ.get("IMPLICIT_WAIT", "10"))
 LINKEDIN_KEYWORDS: str = os.environ.get("LINKEDIN_KEYWORDS", "Software Engineer")
 LINKEDIN_LOCATION: str = os.environ.get("LINKEDIN_LOCATION", "Brazil")
 LINKEDIN_JOB_LIMIT: int = int(os.environ.get("LINKEDIN_JOB_LIMIT", "50"))
+LINKEDIN_TIME_FILTER: str = os.environ.get("LINKEDIN_TIME_FILTER", "r43200")  # 12h = 43200s
 SCRAPE_DETAIL_PAGES: bool = os.environ.get("SCRAPE_DETAIL_PAGES", "true").lower() == "true"
 
 # Anti-detection delays (seconds)
