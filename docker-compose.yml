@@ -49,8 +49,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
-    profiles:
-      - selenium
+    restart: "no"
 
   scraper-selenium:
     build:
@@ -69,5 +68,3 @@ services:
       - ./scraper-selenium/logs:/app/logs
       - ./out/selenium:/app/out
     restart: "no"
-    profiles:
-      - selenium

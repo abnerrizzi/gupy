@@ -14,19 +14,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build all services
 docker-compose build
 
-# Start API and Web UI
-docker-compose up -d
+# Start API and Web UI (name services explicitly to avoid starting selenium)
+docker-compose up -d api web
 # Web UI: http://localhost:8080 | API: http://localhost:5000
 
 # Rebuild after code changes
-docker-compose build && docker-compose up -d --force-recreate
+docker-compose build api web && docker-compose up -d --force-recreate api web
 
 # Run scraper (scraper profile required for `up`; `run` works directly)
 docker-compose run --rm scraper
 
-# Run Selenium-based LinkedIn scraper (selenium profile)
-docker-compose --profile selenium build scraper-selenium
-docker-compose --profile selenium run --rm scraper-selenium
+# Run Selenium-based LinkedIn scraper
+docker-compose build scraper-selenium
+docker-compose up -d firefox          # start browser, wait for healthy
+docker-compose run --rm scraper-selenium
 # Inspect browser live at http://localhost:7900 (noVNC, no password)
 ```
 
