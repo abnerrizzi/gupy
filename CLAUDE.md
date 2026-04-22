@@ -24,9 +24,9 @@ docker-compose build && docker-compose up -d --force-recreate
 # Run scraper (scraper profile required for `up`; `run` works directly)
 docker-compose run --rm scraper
 
-# Run Selenium-based LinkedIn scraper
-docker-compose -f docker-compose.selenium.yml build scraper-selenium
-docker-compose -f docker-compose.selenium.yml run --rm scraper-selenium
+# Run Selenium-based LinkedIn scraper (selenium profile)
+docker-compose --profile selenium build scraper-selenium
+docker-compose --profile selenium run --rm scraper-selenium
 # Inspect browser live at http://localhost:7900 (noVNC, no password)
 ```
 
