@@ -53,7 +53,7 @@ services:
 
   scraper-selenium:
     build:
-      context: ./scraper-selenium
+      context: ./scrapers/linkedin-ff-selenium
       dockerfile: Dockerfile
     depends_on:
       firefox:
@@ -65,6 +65,6 @@ services:
     environment:
       - SELENIUM_URL=http://firefox:4444/wd/hub
     volumes:
-      - ./scraper-selenium/logs:/app/logs
+      - ./scrapers/linkedin-ff-selenium/logs:/app/logs
       - ./out/selenium:/app/out
     restart: "no"

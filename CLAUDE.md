@@ -62,7 +62,7 @@ Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (
 ```
 
 - **Scraper** (`app/main.py`) — runs on-demand via `docker compose run`. `GupyScraper`, `InhireScraper`, and `LinkedInScraper` subclass `Scraper`, which defines `fetch_companies()` and `fetch_jobs(company)`. A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
-- **Selenium scraper** (`scraper-selenium/`) — Firefox-based LinkedIn scraper defined in the unified compose file with `restart: "no"` so it doesn't autostart on `up`. Run on demand via `docker compose run --rm scraper-selenium` (`firefox` service starts automatically as a `depends_on` dependency). Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
+- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper defined in the unified compose file with `restart: "no"` so it doesn't autostart on `up`. Run on demand via `docker compose run --rm scraper-selenium` (`firefox` service starts automatically as a `depends_on` dependency). Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
 - **API** (`api/app.py`) — five read-only Flask endpoints served by 2 Gunicorn workers. Filter logic is built dynamically in `build_filters()`.
 - **Web** (`web/src/`) — React SPA, state in `App.js`. Nginx proxies `/api/*` to Flask, eliminating CORS. `entrypoint.sh` injects `API_URL` at container start.
 
@@ -82,7 +82,7 @@ Each scraper run creates `jobs_{ts}` and `companies_{ts}` timestamped tables. `r
 
 ### Selenium Scraper Internals
 
-`scraper-selenium/app/linkedin.py` — `LinkedInSeleniumScraper.scrape_by_scrolling()` is the core loop: queries the card list, scrolls each card into center view (triggering LinkedIn's lazy loader), parses it immediately, then waits up to `SCROLL_WAIT_RETRIES × SCROLL_WAIT_SECONDS` for new cards before stopping. No detail page navigation — card-level data only.
+`scrapers/linkedin-ff-selenium/app/linkedin.py` — `LinkedInSeleniumScraper.scrape_by_scrolling()` is the core loop: queries the card list, scrolls each card into center view (triggering LinkedIn's lazy loader), parses it immediately, then waits up to `SCROLL_WAIT_RETRIES × SCROLL_WAIT_SECONDS` for new cards before stopping. No detail page navigation — card-level data only.
 
 ## Code Style
 
@@ -110,5 +110,5 @@ Each scraper run creates `jobs_{ts}` and `companies_{ts}` timestamped tables. `r
 | `run_scrap.sh` | Validates timestamp, runs schema init, merges timestamped tables into `_all` |
 | `docker-compose.yml` | All service definitions (`scraper`, `api`, `web`, `firefox`, `scraper-selenium`) |
 | `.env_sample` | Unified env var defaults for all services |
-| `scraper-selenium/app/linkedin.py` | Selenium scraper core logic |
-| `scraper-selenium/app/config.py` | All Selenium scraper config with defaults |
+| `scrapers/linkedin-ff-selenium/app/linkedin.py` | Selenium scraper core logic |
+| `scrapers/linkedin-ff-selenium/app/config.py` | All Selenium scraper config with defaults |
