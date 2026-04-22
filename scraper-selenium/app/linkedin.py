@@ -88,15 +88,16 @@ class LinkedInSeleniumScraper:
 
     def scroll_and_collect_cards(self, limit: int) -> List[Any]:
         cards: List[Any] = []
-        stale_scrolls = 0
-        max_stale = 3
+        step = 300          # pixels per scroll increment
+        pause = 0.5         # seconds between steps
+        stale_at_bottom = 0
+        max_stale_bottom = 3
         iteration = 0
 
-        logger.info("Starting card collection (limit=%d)", limit)
+        logger.info("Starting card collection (limit=%d, step=%dpx)", limit, step)
 
-        while len(cards) < limit and stale_scrolls < max_stale:
+        while len(cards) < limit:
             iteration += 1
-            logger.info("[iter %d] cards: %d / %d", iteration, len(cards), limit)
 
             try:
                 elements = self.driver.find_elements(
@@ -106,49 +107,50 @@ class LinkedInSeleniumScraper:
                 elements = []
 
             new_count = len(elements) - len(cards)
-            if new_count <= 0:
-                stale_scrolls += 1
-                logger.info("[iter %d] no new cards — stale %d/%d", iteration, stale_scrolls, max_stale)
-            else:
-                stale_scrolls = 0
+            if new_count > 0:
+                stale_at_bottom = 0
                 cards = elements
-                logger.info("[iter %d] +%d new cards → total %d", iteration, new_count, len(cards))
+                logger.info("[scroll %d] +%d new cards → total %d", iteration, new_count, len(cards))
 
             if len(cards) >= limit:
                 break
 
-            # Scroll the last card into view first; fall back to the "show more"
-            # button only if the scroll does not deliver new cards.
-            if cards:
-                logger.info("[iter %d] scrolling to card #%d", iteration, len(cards))
-                self.driver.execute_script(
-                    "arguments[0].scrollIntoView({block: 'end', behavior: 'smooth'});",
-                    cards[-1],
+            scroll_height = self.driver.execute_script("return document.body.scrollHeight")
+            scroll_top = self.driver.execute_script(
+                "return window.pageYOffset || document.documentElement.scrollTop"
+            )
+            window_height = self.driver.execute_script("return window.innerHeight")
+            at_bottom = scroll_top + window_height >= scroll_height - 5
+
+            if at_bottom:
+                stale_at_bottom += 1
+                logger.info(
+                    "[scroll %d] at page bottom — %d cards, attempt %d/%d",
+                    iteration, len(cards), stale_at_bottom, max_stale_bottom,
                 )
-                current_count = len(cards)
-                logger.info("[iter %d] waiting for new cards (current: %d)...", iteration, current_count)
-                try:
-                    WebDriverWait(self.driver, 8).until(
-                        lambda d: len(
-                            d.find_elements(By.CSS_SELECTOR, "ul.jobs-search__results-list li")
-                        ) > current_count
-                    )
-                    logger.info("[iter %d] new cards detected after scroll", iteration)
-                except TimeoutException:
-                    logger.info("[iter %d] scroll timed out — trying 'show more' button", iteration)
-                    self._click_show_more()
+                if stale_at_bottom >= max_stale_bottom:
+                    logger.info("End of results reached")
+                    break
+                self._click_show_more()
+                time.sleep(1.5)
             else:
-                logger.info("[iter %d] no cards yet — full page scroll", iteration)
-                self.session.scroll_incremental()
-                self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
+                next_pos = scroll_top + step
+                self.driver.execute_script(
+                    "window.scrollTo({top: arguments[0], behavior: 'smooth'});", next_pos
+                )
+                logger.info(
+                    "[scroll %d] scrolled to %dpx / %dpx — %d cards",
+                    iteration, next_pos, scroll_height, len(cards),
+                )
+                time.sleep(pause)
 
             self.dismiss_ads()
 
             if detect_rate_limit(self.driver):
-                logger.warning("Rate limit detected during card collection, stopping")
+                logger.warning("Rate limit detected — stopping")
                 break
 
-        logger.info("Card collection done — %d cards in %d iterations", len(cards), iteration)
+        logger.info("Card collection done — %d cards in %d scroll steps", len(cards), iteration)
         return cards[:limit]
 
     def _click_show_more(self) -> bool:
