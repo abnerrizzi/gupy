@@ -178,14 +178,14 @@ class LinkedInSeleniumScraper:
         dismissed = 0
         for sel in selectors:
             try:
-                btn = WebDriverWait(self.driver, 2).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, sel))
-                )
-                self.driver.execute_script("arguments[0].click();", btn)
+                elements = self.driver.find_elements(By.CSS_SELECTOR, sel)
+                if not elements or not elements[0].is_displayed():
+                    continue
+                self.driver.execute_script("arguments[0].click();", elements[0])
                 logger.info("dismiss_ads: closed overlay — %s", sel)
                 dismissed += 1
                 self.session.random_delay(0.5, 1.0)
-            except (NoSuchElementException, TimeoutException, ElementClickInterceptedException):
+            except (ElementClickInterceptedException, WebDriverException):
                 continue
         if not dismissed:
             logger.info("dismiss_ads: no overlays found")
