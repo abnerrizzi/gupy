@@ -45,6 +45,7 @@ class LinkedInSeleniumScraper:
         if detect_rate_limit(self.driver):
             return False
 
+        self.dismiss_ads()
         return True
 
     def scroll_and_collect_cards(self, limit: int) -> List[Any]:
@@ -79,6 +80,7 @@ class LinkedInSeleniumScraper:
                 self.session.scroll_incremental()
 
             self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
+            self.dismiss_ads()
 
             if detect_rate_limit(self.driver):
                 logger.warning("Rate limit detected during card collection, stopping")
@@ -102,6 +104,25 @@ class LinkedInSeleniumScraper:
             except (NoSuchElementException, ElementClickInterceptedException):
                 continue
         return False
+
+    def dismiss_ads(self) -> None:
+        selectors = [
+            "button.artdeco-modal__dismiss",
+            "button[aria-label='Dismiss']",
+            "button[aria-label='Close']",
+            "button[data-tracking-control-name='public_jobs_contextual-sign-in-modal_modal_dismiss']",
+            "button[action-type='ACCEPT']",
+        ]
+        for sel in selectors:
+            try:
+                btn = WebDriverWait(self.driver, 2).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, sel))
+                )
+                self.driver.execute_script("arguments[0].click();", btn)
+                logger.debug("Dismissed overlay (%s)", sel)
+                self.session.random_delay(0.5, 1.0)
+            except (NoSuchElementException, TimeoutException, ElementClickInterceptedException):
+                continue
 
     def scrape_detail_page(self, job_url: str) -> Dict[str, Any]:
         for attempt in range(1, config.RETRY_ATTEMPTS + 1):
