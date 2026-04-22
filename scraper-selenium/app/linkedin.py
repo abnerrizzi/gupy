@@ -75,9 +75,16 @@ class LinkedInSeleniumScraper:
             if len(cards) >= limit:
                 break
 
-            # Try to load more via button before scrolling
+            # Try to load more via button, then scroll the last card into view
+            # to trigger LinkedIn's lazy loader; fall back to full-page scroll
             if not self._click_show_more():
-                self.session.scroll_incremental()
+                if cards:
+                    self.driver.execute_script(
+                        "arguments[0].scrollIntoView({block: 'end', behavior: 'smooth'});",
+                        cards[-1],
+                    )
+                else:
+                    self.session.scroll_incremental()
 
             self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
             self.dismiss_ads()
