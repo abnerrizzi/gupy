@@ -55,8 +55,28 @@ class LinkedInSeleniumScraper:
             return False
 
         self._save_page_source("search")
+        self._get_total_jobs()
         self.dismiss_ads()
         return True
+
+    def _get_total_jobs(self) -> int:
+        selectors = [
+            "span.results-context-header__job-count",
+            "h1.results-context-header__query-search span",
+            "div.results-context-header__job-count",
+        ]
+        for sel in selectors:
+            try:
+                raw = self.driver.find_element(By.CSS_SELECTOR, sel).text.strip()
+                nums = re.findall(r"\d[\d,]*", raw)
+                if nums:
+                    total = int(nums[0].replace(",", ""))
+                    logger.info("Total jobs available: %d (raw: %r)", total, raw)
+                    return total
+            except NoSuchElementException:
+                continue
+        logger.warning("Could not determine total jobs count from page")
+        return 0
 
     def _save_page_source(self, label: str) -> None:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
