@@ -33,7 +33,7 @@ services:
       - API_URL=http://api:5000
     restart: unless-stopped
 
-  firefox:
+  selenium:
     image: selenium/standalone-firefox:latest
     shm_size: "2gb"
     ports:
@@ -56,14 +56,14 @@ services:
       context: ./scrapers/linkedin-ff-selenium
       dockerfile: Dockerfile
     depends_on:
-      firefox:
+      selenium:
         condition: service_healthy
     env_file:
       - .env_sample
       - path: .env
         required: false
     environment:
-      - SELENIUM_URL=http://firefox:4444/wd/hub
+      - SELENIUM_URL=http://selenium:4444/wd/hub
     volumes:
       - ./scrapers/linkedin-ff-selenium/logs:/app/logs
       - ./out/selenium:/app/out
