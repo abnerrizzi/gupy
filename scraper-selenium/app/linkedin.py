@@ -9,13 +9,9 @@ from urllib.parse import urlencode
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
     NoSuchElementException,
-    StaleElementReferenceException,
-    TimeoutException,
     WebDriverException,
 )
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from app import config
 from app.browser import BrowserSession
@@ -86,87 +82,88 @@ class LinkedInSeleniumScraper:
             fh.write(self.driver.page_source)
         logger.info("Page source saved → %s", path)
 
-    def scroll_and_collect_cards(self, limit: int) -> List[Any]:
-        cards: List[Any] = []
-        stale_scrolls = 0
-        max_stale = 3
-        iteration = 0
+    def scrape_by_scrolling(self, limit: int) -> List[Dict[str, Any]]:
+        seen_ids: set = set()
+        jobs: List[Dict[str, Any]] = []
+        cursor = 0  # index of next unprocessed card in the DOM list
 
-        logger.info("Starting card collection (limit=%d)", limit)
-
-        while len(cards) < limit and stale_scrolls < max_stale:
-            iteration += 1
-            logger.info("[iter %d] cards: %d / %d", iteration, len(cards), limit)
-
+        while len(jobs) < limit:
             try:
-                elements = self.driver.find_elements(
+                cards = self.driver.find_elements(
                     By.CSS_SELECTOR, "ul.jobs-search__results-list li"
                 )
             except WebDriverException:
-                elements = []
+                cards = []
 
-            new_count = len(elements) - len(cards)
-            if new_count <= 0:
-                stale_scrolls += 1
-                logger.info("[iter %d] no new cards — stale %d/%d", iteration, stale_scrolls, max_stale)
-            else:
-                stale_scrolls = 0
-                cards = elements
-                logger.info("[iter %d] +%d new cards → total %d", iteration, new_count, len(cards))
-
-            if len(cards) >= limit:
+            if len(cards) <= cursor:
+                logger.info("End of results — %d dom cards, %d jobs collected", len(cards), len(jobs))
                 break
 
-            # Scroll the last card into view first; fall back to the "show more"
-            # button only if the scroll does not deliver new cards.
-            if cards:
-                logger.info("[iter %d] scrolling to card #%d", iteration, len(cards))
-                self.driver.execute_script(
-                    "arguments[0].scrollIntoView({block: 'end', behavior: 'smooth'});",
-                    cards[-1],
-                )
-                current_count = len(cards)
-                logger.info("[iter %d] waiting for new cards (current: %d)...", iteration, current_count)
+            logger.info("Batch: processing cards %d–%d", cursor + 1, len(cards))
+
+            for i in range(cursor, len(cards)):
+                card = cards[i]
+
                 try:
-                    WebDriverWait(self.driver, 8).until(
-                        lambda d: len(
-                            d.find_elements(By.CSS_SELECTOR, "ul.jobs-search__results-list li")
-                        ) > current_count
+                    self.driver.execute_script(
+                        "arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", card
                     )
-                    logger.info("[iter %d] new cards detected after scroll", iteration)
-                except TimeoutException:
-                    logger.info("[iter %d] scroll timed out — trying 'show more' button", iteration)
-                    self._click_show_more()
-            else:
-                logger.info("[iter %d] no cards yet — full page scroll", iteration)
-                self.session.scroll_incremental()
-                self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
+                    self.session.random_delay(0.3, 0.6)
+                    job = parse_job_card(card)
+                except Exception as e:
+                    logger.warning("Card %d error: %s", i + 1, e)
+                    continue
+
+                if not job.get("title"):
+                    continue
+
+                job_id = job.get("job_id", "")
+                if job_id in seen_ids:
+                    logger.debug("Card %d duplicate job_id=%s — skipping", i + 1, job_id)
+                    continue
+                seen_ids.add(job_id)
+
+                job["scraped_at"] = datetime.now(timezone.utc).isoformat()
+                jobs.append(job)
+                logger.info("[%d] %r @ %r", len(jobs), job["title"], job["company"])
+
+                if len(jobs) >= limit:
+                    return jobs
+
+            cursor = len(cards)
 
             self.dismiss_ads()
-
             if detect_rate_limit(self.driver):
-                logger.warning("Rate limit detected during card collection, stopping")
+                logger.warning("Rate limit detected — stopping")
                 break
 
-        logger.info("Card collection done — %d cards in %d iterations", len(cards), iteration)
-        return cards[:limit]
+            page_total = self._get_total_jobs()
+            live_count = len(self.driver.find_elements(By.CSS_SELECTOR, "ul.jobs-search__results-list li"))
+            logger.info(
+                "After batch: page_total=%d  dom_cards=%d  cursor=%d",
+                page_total, live_count, cursor,
+            )
 
-    def _click_show_more(self) -> bool:
-        selectors = [
-            "button.infinite-scroller__show-more-button",
-            "button[aria-label='Load more results']",
-            "button.see-more-jobs",
-        ]
-        for sel in selectors:
-            try:
-                btn = self.driver.find_element(By.CSS_SELECTOR, sel)
-                self.driver.execute_script("arguments[0].click();", btn)
-                logger.debug("Clicked 'show more' button (%s)", sel)
-                self.session.random_delay(1.5, 3.0)
-                return True
-            except (NoSuchElementException, ElementClickInterceptedException):
-                continue
-        return False
+            if live_count <= cursor:
+                for attempt in range(1, config.SCROLL_WAIT_RETRIES + 1):
+                    logger.info(
+                        "No new cards yet — waiting %.1fs (attempt %d/%d)",
+                        config.SCROLL_WAIT_SECONDS, attempt, config.SCROLL_WAIT_RETRIES,
+                    )
+                    time.sleep(config.SCROLL_WAIT_SECONDS)
+                    live_count = len(self.driver.find_elements(
+                        By.CSS_SELECTOR, "ul.jobs-search__results-list li"
+                    ))
+                    if live_count > cursor:
+                        logger.info("+%d new cards appeared after wait", live_count - cursor)
+                        break
+                else:
+                    logger.info("No new cards after %d retries — done", config.SCROLL_WAIT_RETRIES)
+                    break
+
+            logger.info("+%d new cards detected, continuing...", live_count - cursor)
+
+        return jobs
 
     def dismiss_ads(self) -> None:
         selectors = [
@@ -221,27 +218,10 @@ class LinkedInSeleniumScraper:
             logger.error("Could not load search page, aborting")
             return []
 
-        card_elements = self.scroll_and_collect_cards(limit)
-        logger.info("Collected %d card elements, parsing...", len(card_elements))
-
-        jobs: List[Dict[str, Any]] = []
-        for idx, card in enumerate(card_elements, 1):
-            try:
-                job = parse_job_card(card)
-            except Exception as e:
-                logger.warning("Card %d parse error: %s", idx, e)
-                continue
-
-            if not job.get("title"):
-                logger.debug("Card %d — no title, skipping", idx)
-                continue
-
-            job["scraped_at"] = datetime.now(timezone.utc).isoformat()
+        jobs = self.scrape_by_scrolling(limit)
+        for job in jobs:
             job["keywords"] = keywords
             job["search_location"] = location
-
-            jobs.append(job)
-            logger.info("[%d/%d] Scraped: %r @ %r", idx, len(card_elements), job["title"], job["company"])
 
         logger.info("Scrape session complete — %d jobs collected", len(jobs))
         return jobs
