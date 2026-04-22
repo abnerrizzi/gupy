@@ -61,7 +61,7 @@ Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (
 ```
 
 - **Scraper** (`app/main.py`) — runs on-demand via `docker-compose run`. `GupyScraper`, `InhireScraper`, and `LinkedInScraper` subclass `Scraper`, which defines `fetch_companies()` and `fetch_jobs(company)`. A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
-- **Selenium scraper** (`scraper-selenium/`) — standalone Firefox-based LinkedIn scraper with its own compose file, Dockerfile, and config. Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `scraper-selenium/.env` (git-ignored) overriding `.env.selenium.sample`.
+- **Selenium scraper** (`scraper-selenium/`) — Firefox-based LinkedIn scraper running under the `selenium` compose profile. Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
 - **API** (`api/app.py`) — five read-only Flask endpoints served by 2 Gunicorn workers. Filter logic is built dynamically in `build_filters()`.
 - **Web** (`web/src/`) — React SPA, state in `App.js`. Nginx proxies `/api/*` to Flask, eliminating CORS. `entrypoint.sh` injects `API_URL` at container start.
 
@@ -107,8 +107,7 @@ Each scraper run creates `jobs_{ts}` and `companies_{ts}` timestamped tables. `r
 | `api/app.py` | Flask endpoints and `build_filters()` helper |
 | `sqlite-init.sql` | Full DB schema — changes need migration planning |
 | `run_scrap.sh` | Validates timestamp, runs schema init, merges timestamped tables into `_all` |
-| `docker-compose.yml` | Service definitions (`scraper` profile, `api`, `web`) |
-| `.env_sample` | Env var defaults for main scraper and API |
+| `docker-compose.yml` | All service definitions (`scraper`, `api`, `web`, `selenium` profile) |
+| `.env_sample` | Unified env var defaults for all services |
 | `scraper-selenium/app/linkedin.py` | Selenium scraper core logic |
 | `scraper-selenium/app/config.py` | All Selenium scraper config with defaults |
-| `scraper-selenium/.env.selenium.sample` | Env var defaults for Selenium scraper |
