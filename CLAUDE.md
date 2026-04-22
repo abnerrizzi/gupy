@@ -12,21 +12,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Build all services
-docker-compose build
+docker compose build
 
-# Start API and Web UI
-docker-compose up -d
+# Start API and Web UI (name services explicitly to avoid starting selenium)
+docker compose up -d api web
 # Web UI: http://localhost:8080 | API: http://localhost:5000
 
 # Rebuild after code changes
-docker-compose build && docker-compose up -d --force-recreate
+docker compose build api web && docker compose up -d --force-recreate api web
 
 # Run scraper (scraper profile required for `up`; `run` works directly)
-docker-compose run --rm scraper
+docker compose run --rm scraper
 
 # Run Selenium-based LinkedIn scraper
-docker-compose -f docker-compose.selenium.yml build scraper-selenium
-docker-compose -f docker-compose.selenium.yml run --rm scraper-selenium
+docker compose build scraper-linkedin
+docker compose up -d selenium         # start browser, wait for healthy
+docker compose run --rm scraper-linkedin
 # Inspect browser live at http://localhost:7900 (noVNC, no password)
 ```
 
@@ -60,8 +61,8 @@ Three Docker services share a single SQLite file at `./out/jobhubmine.db`:
 Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (React/Nginx)
 ```
 
-- **Scraper** (`app/main.py`) — runs on-demand via `docker-compose run`. `GupyScraper`, `InhireScraper`, and `LinkedInScraper` subclass `Scraper`, which defines `fetch_companies()` and `fetch_jobs(company)`. A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
-- **Selenium scraper** (`scraper-selenium/`) — standalone Firefox-based LinkedIn scraper with its own compose file, Dockerfile, and config. Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `scraper-selenium/.env` (git-ignored) overriding `.env.selenium.sample`.
+- **Scraper** (`app/main.py`) — runs on-demand via `docker compose run`. `GupyScraper`, `InhireScraper`, and `LinkedInScraper` subclass `Scraper`, which defines `fetch_companies()` and `fetch_jobs(company)`. A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
+- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper defined in the unified compose file with `restart: "no"` so it doesn't autostart on `up`. Run on demand via `docker compose run --rm scraper-linkedin` (`selenium` service starts automatically as a `depends_on` dependency). Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
 - **API** (`api/app.py`) — five read-only Flask endpoints served by 2 Gunicorn workers. Filter logic is built dynamically in `build_filters()`.
 - **Web** (`web/src/`) — React SPA, state in `App.js`. Nginx proxies `/api/*` to Flask, eliminating CORS. `entrypoint.sh` injects `API_URL` at container start.
 
@@ -81,7 +82,7 @@ Each scraper run creates `jobs_{ts}` and `companies_{ts}` timestamped tables. `r
 
 ### Selenium Scraper Internals
 
-`scraper-selenium/app/linkedin.py` — `LinkedInSeleniumScraper.scrape_by_scrolling()` is the core loop: queries the card list, scrolls each card into center view (triggering LinkedIn's lazy loader), parses it immediately, then waits up to `SCROLL_WAIT_RETRIES × SCROLL_WAIT_SECONDS` for new cards before stopping. No detail page navigation — card-level data only.
+`scrapers/linkedin-ff-selenium/app/linkedin.py` — `LinkedInSeleniumScraper.scrape_by_scrolling()` is the core loop: queries the card list, scrolls each card into center view (triggering LinkedIn's lazy loader), parses it immediately, then waits up to `SCROLL_WAIT_RETRIES × SCROLL_WAIT_SECONDS` for new cards before stopping. No detail page navigation — card-level data only.
 
 ## Code Style
 
@@ -107,8 +108,7 @@ Each scraper run creates `jobs_{ts}` and `companies_{ts}` timestamped tables. `r
 | `api/app.py` | Flask endpoints and `build_filters()` helper |
 | `sqlite-init.sql` | Full DB schema — changes need migration planning |
 | `run_scrap.sh` | Validates timestamp, runs schema init, merges timestamped tables into `_all` |
-| `docker-compose.yml` | Service definitions (`scraper` profile, `api`, `web`) |
-| `.env_sample` | Env var defaults for main scraper and API |
-| `scraper-selenium/app/linkedin.py` | Selenium scraper core logic |
-| `scraper-selenium/app/config.py` | All Selenium scraper config with defaults |
-| `scraper-selenium/.env.selenium.sample` | Env var defaults for Selenium scraper |
+| `docker-compose.yml` | All service definitions (`scraper`, `api`, `web`, `selenium`, `scraper-linkedin`) |
+| `.env_sample` | Unified env var defaults for all services |
+| `scrapers/linkedin-ff-selenium/app/linkedin.py` | Selenium scraper core logic |
+| `scrapers/linkedin-ff-selenium/app/config.py` | All Selenium scraper config with defaults |
