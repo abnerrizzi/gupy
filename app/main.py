@@ -8,7 +8,7 @@ from typing import Iterable
 
 import tqdm
 
-from scrapers import GupyScraper, InhireScraper, LinkedInScraper, get_http_session
+from scrapers import GupyScraper, InhireScraper, get_http_session
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Known source names. Values interpolate into table names, so they are locked down
 # here and cross-checked against each scraper's `source_name` at runtime to keep the
 # SQL-injection guard (currently enforced on `ts`) intact.
-KNOWN_SOURCES = ("gupy", "inhire", "linkedin")
+KNOWN_SOURCES = ("gupy", "inhire")
 
 
 def init_database_tables(db_path: str, ts: str, sources: Iterable[str]) -> None:
@@ -84,15 +84,12 @@ if __name__ == "__main__":
 
     gupy_enabled = os.environ.get('GUPY_ENABLED', 'true').lower() == 'true'
     inhire_enabled = os.environ.get('INHIRE_ENABLED', 'true').lower() == 'true'
-    linkedin_enabled = os.environ.get('LINKEDIN_ENABLED', 'true').lower() == 'true'
 
     scrapers = []
     if gupy_enabled:
         scrapers.append(GupyScraper(session))
     if inhire_enabled:
         scrapers.append(InhireScraper(session))
-    if linkedin_enabled:
-        scrapers.append(LinkedInScraper(session))
 
     if not scrapers:
         logger.warning("No scrapers enabled. Exiting.")
