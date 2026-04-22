@@ -19,6 +19,8 @@ PAGE_LOAD_DELAY_MIN: float = float(os.environ.get("PAGE_LOAD_DELAY_MIN", "3.0"))
 PAGE_LOAD_DELAY_MAX: float = float(os.environ.get("PAGE_LOAD_DELAY_MAX", "7.0"))
 RETRY_ATTEMPTS: int = int(os.environ.get("RETRY_ATTEMPTS", "3"))
 RETRY_DELAY: float = float(os.environ.get("RETRY_DELAY", "10.0"))
+SCROLL_WAIT_SECONDS: float = float(os.environ.get("SCROLL_WAIT_SECONDS", "3.0"))
+SCROLL_WAIT_RETRIES: int = int(os.environ.get("SCROLL_WAIT_RETRIES", "3"))
 
 # Logging
 LOG_LEVEL_STDOUT: str = os.environ.get("LOG_LEVEL_STDOUT", "INFO")
