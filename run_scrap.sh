@@ -39,6 +39,17 @@ if [ ! -f "$folder/$db_file" ]; then
   rm -f "$temp_init_sql"
 fi
 
+# Phase 1b: One-shot migration from pre-split schema (jobs_all/companies_all as TABLES)
+# No-op on fresh or already-migrated DBs.
+jobs_all_type=$(sqlite3 "$folder/$db_file" "SELECT type FROM sqlite_master WHERE name='jobs_all'" 2>/dev/null || echo "")
+if [ "$jobs_all_type" = "table" ]; then
+  echo "Migrating pre-split schema to per-source tables..."
+  if ! sqlite3 "$folder/$db_file" < migrate-to-per-source.sql; then
+    echo "Error: migration from pre-split schema failed"
+    exit 1
+  fi
+fi
+
 # Run the Python script (creates SQLite with data)
 python3 app/main.py "$ts" "$folder" "$db_file"
 
