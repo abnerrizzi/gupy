@@ -89,10 +89,14 @@ class LinkedInSeleniumScraper:
         cards: List[Any] = []
         stale_scrolls = 0
         max_stale = 3
+        iteration = 0
 
-        logger.info("Collecting job cards (limit=%d)...", limit)
+        logger.info("Starting card collection (limit=%d)", limit)
 
         while len(cards) < limit and stale_scrolls < max_stale:
+            iteration += 1
+            logger.info("[iter %d] cards: %d / %d", iteration, len(cards), limit)
+
             try:
                 elements = self.driver.find_elements(
                     By.CSS_SELECTOR, "ul.jobs-search__results-list li"
@@ -103,11 +107,11 @@ class LinkedInSeleniumScraper:
             new_count = len(elements) - len(cards)
             if new_count <= 0:
                 stale_scrolls += 1
-                logger.debug("No new cards after scroll (stale=%d/%d)", stale_scrolls, max_stale)
+                logger.info("[iter %d] no new cards — stale %d/%d", iteration, stale_scrolls, max_stale)
             else:
                 stale_scrolls = 0
                 cards = elements
-                logger.info("%d job cards found so far", len(cards))
+                logger.info("[iter %d] +%d new cards → total %d", iteration, new_count, len(cards))
 
             if len(cards) >= limit:
                 break
@@ -116,21 +120,24 @@ class LinkedInSeleniumScraper:
             # into view and wait for the lazy loader to deliver new cards.
             if not self._click_show_more():
                 if cards:
+                    logger.info("[iter %d] scrolling to card #%d", iteration, len(cards))
                     self.driver.execute_script(
                         "arguments[0].scrollIntoView({block: 'end', behavior: 'smooth'});",
                         cards[-1],
                     )
                     current_count = len(cards)
+                    logger.info("[iter %d] waiting for new cards (current: %d)...", iteration, current_count)
                     try:
                         WebDriverWait(self.driver, 10).until(
                             lambda d: len(
                                 d.find_elements(By.CSS_SELECTOR, "ul.jobs-search__results-list li")
                             ) > current_count
                         )
-                        logger.debug("New cards loaded after scroll")
+                        logger.info("[iter %d] new cards detected", iteration)
                     except TimeoutException:
-                        logger.debug("No new cards loaded within wait period")
+                        logger.info("[iter %d] timed out — no new cards loaded", iteration)
                 else:
+                    logger.info("[iter %d] no cards yet — full page scroll", iteration)
                     self.session.scroll_incremental()
                     self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
 
@@ -140,6 +147,7 @@ class LinkedInSeleniumScraper:
                 logger.warning("Rate limit detected during card collection, stopping")
                 break
 
+        logger.info("Card collection done — %d cards in %d iterations", len(cards), iteration)
         return cards[:limit]
 
     def _click_show_more(self) -> bool:
@@ -167,16 +175,20 @@ class LinkedInSeleniumScraper:
             "button[data-tracking-control-name='public_jobs_contextual-sign-in-modal_modal_dismiss']",
             "button[action-type='ACCEPT']",
         ]
+        dismissed = 0
         for sel in selectors:
             try:
                 btn = WebDriverWait(self.driver, 2).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, sel))
                 )
                 self.driver.execute_script("arguments[0].click();", btn)
-                logger.debug("Dismissed overlay (%s)", sel)
+                logger.info("dismiss_ads: closed overlay — %s", sel)
+                dismissed += 1
                 self.session.random_delay(0.5, 1.0)
             except (NoSuchElementException, TimeoutException, ElementClickInterceptedException):
                 continue
+        if not dismissed:
+            logger.info("dismiss_ads: no overlays found")
 
     def scrape_detail_page(self, job_url: str) -> Dict[str, Any]:
         for attempt in range(1, config.RETRY_ATTEMPTS + 1):
