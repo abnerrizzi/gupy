@@ -201,12 +201,11 @@ CREATE VIEW jobs AS SELECT * FROM jobs_all;
 DROP VIEW IF EXISTS companies;
 CREATE VIEW companies AS SELECT * FROM companies_all;
 
--- Legacy "latest" shadow names: drop any pre-existing tables, recreate as views
-DROP TABLE IF EXISTS jobs_latest;
+-- Legacy "latest" shadow names recreated as views. Pre-split TABLE case is
+-- handled by migrate-to-per-source.sql before this script runs.
 DROP VIEW IF EXISTS jobs_latest;
 CREATE VIEW jobs_latest AS SELECT * FROM jobs_all;
 
-DROP TABLE IF EXISTS companies_latest;
 DROP VIEW IF EXISTS companies_latest;
 CREATE VIEW companies_latest AS SELECT * FROM companies_all;
 
