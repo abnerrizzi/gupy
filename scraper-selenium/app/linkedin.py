@@ -258,7 +258,5 @@ class LinkedInSeleniumScraper:
             jobs.append(job)
             logger.info("[%d/%d] Scraped: %r @ %r", i, len(card_elements), job["title"], job["company"])
 
-            self.session.random_delay(config.DELAY_MIN, config.DELAY_MAX)
-
         logger.info("Scrape session complete — %d jobs collected", len(jobs))
         return jobs
