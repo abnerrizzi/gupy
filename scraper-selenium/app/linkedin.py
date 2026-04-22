@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
     NoSuchElementException,
+    StaleElementReferenceException,
     TimeoutException,
     WebDriverException,
 )
@@ -190,6 +191,50 @@ class LinkedInSeleniumScraper:
         if not dismissed:
             logger.info("dismiss_ads: no overlays found")
 
+    def scrape_from_detail_panel(self, card: Any, index: int) -> Dict[str, Any]:
+        url_before = self.driver.current_url
+        try:
+            logger.info("[card %d] scrolling card into view", index)
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", card
+            )
+            self.session.random_delay(0.3, 0.8)
+
+            try:
+                link = card.find_element(By.CSS_SELECTOR, "a.base-card__full-link")
+                self.driver.execute_script("arguments[0].click();", link)
+            except NoSuchElementException:
+                self.driver.execute_script("arguments[0].click();", card)
+
+            logger.info("[card %d] waiting for detail panel...", index)
+            try:
+                WebDriverWait(self.driver, 8).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "div.show-more-less-html, div.description__text")
+                    )
+                )
+            except TimeoutException:
+                logger.warning("[card %d] detail panel timed out", index)
+                return {}
+
+            detail = parse_job_detail(self.driver)
+            logger.info("[card %d] detail scraped", index)
+
+            # If clicking navigated to a standalone job page, go back
+            if "/jobs/view/" in self.driver.current_url:
+                logger.info("[card %d] navigated to job page — returning to search", index)
+                self.driver.get(url_before)
+                self.session.random_delay(config.PAGE_LOAD_DELAY_MIN, config.PAGE_LOAD_DELAY_MAX)
+
+            return detail
+
+        except StaleElementReferenceException:
+            logger.warning("[card %d] stale element — skipping detail", index)
+            return {}
+        except WebDriverException as e:
+            logger.warning("[card %d] panel error: %s", index, e)
+            return {}
+
     def scrape_detail_page(self, job_url: str) -> Dict[str, Any]:
         for attempt in range(1, config.RETRY_ATTEMPTS + 1):
             try:
@@ -224,7 +269,6 @@ class LinkedInSeleniumScraper:
         logger.info("Collected %d card elements, parsing...", len(card_elements))
 
         jobs: List[Dict[str, Any]] = []
-        search_url = self.driver.current_url  # save for navigation back
 
         for i, card in enumerate(card_elements, 1):
             try:
@@ -237,15 +281,10 @@ class LinkedInSeleniumScraper:
                 logger.debug("Skipping card %d — no title extracted", i)
                 continue
 
-            if config.SCRAPE_DETAIL_PAGES and job.get("job_url"):
-                detail = self.scrape_detail_page(job["job_url"])
+            if config.SCRAPE_DETAIL_PAGES:
+                detail = self.scrape_from_detail_panel(card, i)
                 job.update(detail)
-                # Return to search results
-                try:
-                    self.driver.get(search_url)
-                    self.session.random_delay(config.PAGE_LOAD_DELAY_MIN, config.PAGE_LOAD_DELAY_MAX)
-                except WebDriverException:
-                    pass
+                self.dismiss_ads()
 
             job["scraped_at"] = datetime.now(timezone.utc).isoformat()
             job["keywords"] = keywords
