@@ -10,6 +10,7 @@ import threading
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify
+from selenium.common.exceptions import WebDriverException
 
 from app import config
 from app.browser import BrowserSession
@@ -27,14 +28,31 @@ _driver_lock = threading.Lock()
 _scraper: LinkedInSeleniumScraper | None = None
 
 
+def _create_scraper() -> LinkedInSeleniumScraper:
+    logger.info('Bootstrapping Selenium session at %s', config.SELENIUM_URL)
+    session = BrowserSession(config.SELENIUM_URL, config.BROWSER_TIMEOUT)
+    session.create_driver()
+    return LinkedInSeleniumScraper(session)
+
+
 def _get_scraper() -> LinkedInSeleniumScraper:
     global _scraper
     if _scraper is None:
-        logger.info('Bootstrapping Selenium session at %s', config.SELENIUM_URL)
-        session = BrowserSession(config.SELENIUM_URL, config.BROWSER_TIMEOUT)
-        session.create_driver()
-        _scraper = LinkedInSeleniumScraper(session)
+        _scraper = _create_scraper()
     return _scraper
+
+
+def _reset_scraper() -> None:
+    """Drop the cached driver after a session-lost error. Selenium nodes GC
+    idle sessions (~3 min of inactivity) so the cached driver goes stale
+    between requests — detect + recreate on the next fetch."""
+    global _scraper
+    if _scraper is not None:
+        try:
+            _scraper.driver.quit()
+        except WebDriverException:
+            pass
+    _scraper = None
 
 
 @app.route('/health')
@@ -42,13 +60,41 @@ def health():
     return jsonify({'status': 'ok'})
 
 
+def _scrape_with_retry(job_url: str) -> dict:
+    """Run scrape_detail_page once; if it returns empty because the driver
+    session died between requests, rebuild the driver and try one more time."""
+    scraper = _get_scraper()
+    try:
+        result = scraper.scrape_detail_page(job_url)
+    except WebDriverException as exc:
+        logger.warning('driver error — rebuilding: %s', exc)
+        _reset_scraper()
+        scraper = _get_scraper()
+        result = scraper.scrape_detail_page(job_url)
+
+    if result and result.get('description'):
+        return result
+
+    # scrape_detail_page swallows WebDriverException internally and returns
+    # {}. Probe the driver to decide whether an empty result means a dead
+    # session (→ rebuild + retry) or a real auth-wall / rate-limit.
+    try:
+        _ = scraper.driver.title
+    except WebDriverException:
+        logger.warning('session lost — rebuilding and retrying once')
+        _reset_scraper()
+        scraper = _get_scraper()
+        result = scraper.scrape_detail_page(job_url)
+
+    return result or {}
+
+
 @app.route('/fetch/<job_id>', methods=['POST'])
 def fetch_detail(job_id: str):
     job_url = f'https://www.linkedin.com/jobs/view/{job_id}'
     with _driver_lock:
         try:
-            scraper = _get_scraper()
-            result = scraper.scrape_detail_page(job_url)
+            result = _scrape_with_retry(job_url)
         except Exception as exc:
             logger.error('scrape_detail_page failed for %s: %s', job_id, exc, exc_info=True)
             return jsonify({'error': f'scrape failed: {exc}'}), 502
