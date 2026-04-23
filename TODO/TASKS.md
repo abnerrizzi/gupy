@@ -23,12 +23,12 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
 
 ## EPIC 1 — Per-source detail tables in SQLite
 
-- [ ] **1.1 Lock the column list from real payloads**
-  - [ ] Scrape one gupy job's posting page and note which fields are present.
-  - [ ] Fetch one inhire `/vagas/{id}/description` and note its fields.
-  - [ ] Confirm LinkedIn's `parse_job_detail()` output keys (`scrapers/linkedin-ff-selenium/app/parser.py:60-103`).
-  - [ ] Record the decision (column names/types) below in the **Decisions** section.
-  - **No commit** — this story is investigation only; results live in this file.
+- [x] **1.1 Lock the column list from real payloads**
+  - [x] Scrape one gupy job's posting page and note which fields are present.
+  - [x] Fetch one inhire `/vagas/{id}/description` and note its fields.
+  - [x] Confirm LinkedIn's `parse_job_detail()` output keys (`scrapers/linkedin-ff-selenium/app/parser.py:60-103`).
+  - [x] Record the decision (column names/types) below in the **Decisions** section.
+  - Commit: `docs(tasks): lock per-source detail column list`
 
 - [ ] **1.2 Add detail tables + extend `job_details` view**
   - [ ] `CREATE TABLE IF NOT EXISTS jobs_gupy_detail` in `sqlite-init.sql`.
@@ -131,7 +131,21 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
 
 ## Decisions (filled in during 1.1)
 
-_To be filled._
+Investigated against three live jobs:
+
+- **Gupy** → `https://{subdomain}.gupy.io/jobs/{id}` returns HTML with a `<script id="__NEXT_DATA__">` JSON block. The useful fields are `props.pageProps.job.{description, responsibilities, prerequisites}` (all HTML), plus `workplaceType`, `jobType`, `addressCountry`, `publishedAt`.
+- **Inhire** → `https://api.inhire.app/job-posts/public/pages/{id}` returns JSON (requires the same `x-tenant` / `origin` / `referer` headers the listing scraper already uses). Useful fields: `description` (HTML), `about` (HTML, company blurb), `contractType` (list of strings — e.g. `["CLT"]`), `workplaceType`, `location`, `locationComplement`, `publishedAt`.
+- **LinkedIn** → Already produced by `parse_job_detail()` in `scrapers/linkedin-ff-selenium/app/parser.py:60-103`: `description` (plain text — parser uses `.text`, not HTML), `seniority`, `employment_type`. No change needed to the parser.
+
+Locked column list (all `_detail` tables also carry `id TEXT PRIMARY KEY` + `fetched_at TEXT NOT NULL`):
+
+| Source   | Columns                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------- |
+| gupy     | description_html, responsibilities_html, prerequisites_html, workplace_type, job_type, country, published_at  |
+| inhire   | description_html, about_html, contract_type, workplace_type, location, location_complement, published_at      |
+| linkedin | description, seniority, employment_type                                                                       |
+
+Note: Gupy/Inhire `description*` fields are HTML and must be sanitized (`DOMPurify`) before rendering. LinkedIn's `description` is plain text and should render via `white-space: pre-wrap`.
 
 ## E2E results (filled in during 5.1)
 
