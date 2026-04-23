@@ -68,7 +68,8 @@ services:
       - SELENIUM_URL=http://selenium:4444/wd/hub
     volumes:
       - ./scrapers/linkedin-ff-selenium/logs:/app/logs
-      - ./out/selenium:/app/out
+      - ./out:/app/out
+      - ./sqlite-init.sql:/app/sqlite-init.sql:ro
     restart: "no"
     profiles:
       - linkedin
