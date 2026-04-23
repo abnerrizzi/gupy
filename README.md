@@ -17,6 +17,43 @@ A Dockerized pipeline to scrape, store, and browse job opportunities from variou
                                          └──────────────┘
 ```
 
+## 💾 Data Flow (tables & views)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Scraper  (app/main.py, per-source Scraper subclasses)       │
+└──────────────────────────────┬───────────────────────────────┘
+                               │  INSERT OR IGNORE
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  Per-run ephemeral tables  (fresh set each scrape)           │
+│    jobs_{source}_<ts>        companies_{source}_<ts>         │
+└──────────────────────────────┬───────────────────────────────┘
+                               │  sqlite-init.sql merge:
+                               │   • DELETE  _latest  (if <SOURCE>_WRITE_MODE=replace
+                               │                       and the <ts> table has rows)
+                               │   • INSERT OR REPLACE  from  _<ts>
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  Per-source _latest tables  (persistent source of truth)     │
+│    jobs_gupy_latest          companies_gupy_latest           │
+│    jobs_inhire_latest        companies_inhire_latest         │
+│    jobs_linkedin_latest      companies_linkedin_latest       │
+└──────────────────────────────┬───────────────────────────────┘
+                               │  UNION ALL  (per source)
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  Views  (what the API reads)                                 │
+│    jobs_all       companies_all                              │
+│    job_details    ◀── JOIN jobs_all + companies_all          │
+│                       + per-source URL synthesis             │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- Ephemeral `_<ts>` tables keep every run isolated until the merge step.
+- `<SOURCE>_WRITE_MODE` (`replace` | `append`) governs whether stale IDs in `_latest` survive a run. An `EXISTS` guard in `sqlite-init.sql` blocks the wipe when the current run produced no rows, so a disabled or failed scrape never destroys good data.
+- The API only reads the views (`jobs_all`, `companies_all`, `job_details`) — adding a new source means extending the `UNION ALL` arm, not touching the API.
+
 ## 🚀 Getting Started (Docker)
 
 This system is designed to run in Docker. Ensure [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) are installed.
