@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS jobs_gupy_detail (
     job_type TEXT,
     country TEXT,
     published_at TEXT,
+    next_data TEXT,
     fetched_at TEXT NOT NULL
 );
 

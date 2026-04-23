@@ -8,6 +8,11 @@ from flask import Flask, request, jsonify, g
 from fetchers import FETCHERS, FetchError
 
 app = Flask(__name__)
+
+logging.basicConfig(
+    level=os.environ.get('LOG_LEVEL', 'INFO'),
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+)
 logger = logging.getLogger(__name__)
 
 DATABASE = os.environ.get('JOBHUBMINE_DATABASE', '/app/out/jobhubmine.db')
@@ -23,6 +28,37 @@ def _enable_wal(db):
     # Enable WAL once per DB file so the API and a concurrent scraper run
     # don't block each other. Idempotent — safe on every open.
     db.execute('PRAGMA journal_mode=WAL')
+
+
+_DETAIL_MIGRATIONS = {
+    'jobs_gupy_detail': ['next_data'],
+    'jobs_linkedin_detail': ['detail_html'],
+}
+
+
+def _ensure_detail_schema():
+    """Idempotent per-worker migration: add detail columns that were
+    introduced after the table first landed. CREATE TABLE IF NOT EXISTS
+    can't alter existing tables, so we check PRAGMA + ALTER when missing."""
+    try:
+        con = sqlite3.connect(DATABASE)
+    except sqlite3.OperationalError:
+        return
+    try:
+        for table, cols_required in _DETAIL_MIGRATIONS.items():
+            existing = {r[1] for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
+            if not existing:
+                continue
+            for col in cols_required:
+                if col not in existing:
+                    logger.info('schema migration: adding %s.%s', table, col)
+                    con.execute(f'ALTER TABLE {table} ADD COLUMN {col} TEXT')
+        con.commit()
+    finally:
+        con.close()
+
+
+_ensure_detail_schema()
 
 
 def get_db():
