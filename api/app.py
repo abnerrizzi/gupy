@@ -32,6 +32,7 @@ def _enable_wal(db):
 
 _DETAIL_MIGRATIONS = {
     'jobs_gupy_detail': ['next_data'],
+    'jobs_inhire_detail': ['raw_payload'],
     'jobs_linkedin_detail': ['detail_html'],
 }
 

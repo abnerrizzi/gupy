@@ -1,4 +1,10 @@
+import json
+import logging
+import time
+
 from .base import FetchError, get_http_session
+
+logger = logging.getLogger(__name__)
 
 INHIRE_TIMEOUT = 30
 
@@ -17,14 +23,22 @@ def fetch_inhire_detail(job_id: str, context: dict) -> dict:
         'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) jobhubmine-detail-fetch',
     }
 
+    logger.info('[inhire %s] ==> fetch start — tenant=%s url=%s', job_id, tenant, api_url)
     session = get_http_session()
+
+    logger.info('[inhire %s] step 1: HTTP GET', job_id)
+    t0 = time.monotonic()
     try:
         response = session.get(api_url, headers=headers, timeout=INHIRE_TIMEOUT)
     except Exception as exc:
         raise FetchError(f"GET {api_url} failed: {exc}") from exc
+    logger.info('[inhire %s] step 1: status=%d size=%d (%.1fs)',
+                job_id, response.status_code, len(response.content), time.monotonic() - t0)
     if response.status_code != 200:
         raise FetchError(f"GET {api_url} returned {response.status_code}")
 
+    raw_body = response.text
+    logger.info('[inhire %s] step 2: parsing JSON', job_id)
     try:
         data = response.json()
     except ValueError as exc:
@@ -39,7 +53,15 @@ def fetch_inhire_detail(job_id: str, context: dict) -> dict:
     elif contract is None:
         contract = ''
 
-    return {
+    # Persist the normalised payload (post data-wrapper unwrapping) as the
+    # raw_payload so the UI tree view sees the job object directly.
+    raw_payload = (
+        json.dumps(payload, ensure_ascii=False)
+        if payload is not data
+        else raw_body
+    )
+
+    fields = {
         'description_html': payload.get('description') or '',
         'about_html': payload.get('about') or '',
         'contract_type': contract,
@@ -47,4 +69,11 @@ def fetch_inhire_detail(job_id: str, context: dict) -> dict:
         'location': payload.get('location') or '',
         'location_complement': payload.get('locationComplement') or '',
         'published_at': payload.get('publishedAt') or '',
+        'raw_payload': raw_payload,
     }
+    logger.info('[inhire %s] <== fetch done — desc=%d about=%d raw_payload=%d',
+                job_id,
+                len(fields['description_html']),
+                len(fields['about_html']),
+                len(fields['raw_payload']))
+    return fields

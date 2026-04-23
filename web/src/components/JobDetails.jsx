@@ -1,7 +1,15 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import DOMPurify from 'dompurify';
+import JsonTree from './JsonTree';
 import { formatWorkplaceType, formatJobType } from '../utils/formatters';
+
+function pickRawJson(detail) {
+  if (!detail) return null;
+  if (detail.source === 'gupy') return detail.next_data || null;
+  if (detail.source === 'inhire') return detail.raw_payload || null;
+  return null;
+}
 
 function renderHtmlBlock(html) {
   if (!html) return null;
@@ -62,6 +70,12 @@ function SourceDetail({ detail }) {
       ))}
       {detail.fetched_at && (
         <p className="detail-meta">Sincronizado em {detail.fetched_at}</p>
+      )}
+      {pickRawJson(detail) && (
+        <details className="json-details">
+          <summary>JSON completo da fonte</summary>
+          <JsonTree raw={pickRawJson(detail)} />
+        </details>
       )}
     </>
   );

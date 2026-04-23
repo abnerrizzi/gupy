@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS jobs_inhire_detail (
     location TEXT,
     location_complement TEXT,
     published_at TEXT,
+    raw_payload TEXT,
     fetched_at TEXT NOT NULL
 );
 
