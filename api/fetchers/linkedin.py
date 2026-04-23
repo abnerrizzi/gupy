@@ -30,4 +30,5 @@ def fetch_linkedin_detail(job_id: str, context: dict) -> dict:
         'description': payload.get('description') or '',
         'seniority': payload.get('seniority') or '',
         'employment_type': payload.get('employment_type') or '',
+        'detail_html': payload.get('detail_html') or '',
     }

@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS jobs_linkedin_detail (
     description TEXT,
     seniority TEXT,
     employment_type TEXT,
+    detail_html TEXT,
     fetched_at TEXT NOT NULL
 );
 
