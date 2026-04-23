@@ -52,11 +52,11 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
   - Commit: `feat(api): add GET job detail endpoint`
   - Acceptance: `curl http://localhost:8080/api/jobs/<id>/detail` returns 404 for an unfetched job.
 
-- [ ] **2.2 `POST /api/jobs/<job_id>/detail/fetch` skeleton**
-  - [ ] Source dispatch helper (look the job up in `jobs_all`, branch on `source`).
-  - [ ] Enable WAL once per connection so writes don't block scraper runs.
-  - [ ] Shared upsert helper (INSERT OR REPLACE).
-  - [ ] No per-source fetch code yet — each branch raises `NotImplementedError`.
+- [x] **2.2 `POST /api/jobs/<job_id>/detail/fetch` skeleton**
+  - [x] Source dispatch helper (look the job up in `jobs_all`, branch on `source`).
+  - [x] Enable WAL once per connection so writes don't block scraper runs.
+  - [x] Shared upsert helper (INSERT OR REPLACE).
+  - [x] No per-source fetch code yet — each branch raises `NotImplementedError` (501).
   - Commit: `feat(api): add detail fetch skeleton and wal mode`
 
 - [ ] **2.3 Gupy fetcher**
