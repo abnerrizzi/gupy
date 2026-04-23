@@ -73,10 +73,10 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
 
 ## EPIC 3 — LinkedIn detail sidecar
 
-- [ ] **3.1 `detail_server.py` inside linkedin-ff-selenium**
-  - [ ] Small Flask app exposing `POST /fetch/<job_id>`.
-  - [ ] Boots a Selenium driver once, reuses it across requests.
-  - [ ] Calls existing `LinkedInSeleniumScraper.scrape_detail_page()` and upserts into `jobs_linkedin_detail`.
+- [x] **3.1 `detail_server.py` inside linkedin-ff-selenium**
+  - [x] Small Flask app exposing `POST /fetch/<job_id>`.
+  - [x] Boots a Selenium driver once (lock-guarded), reuses it across requests.
+  - [x] Calls existing `LinkedInSeleniumScraper.scrape_detail_page()` and upserts into `jobs_linkedin_detail`.
   - Commit: `feat(linkedin): add on-demand detail fetch server`
 
 - [ ] **3.2 `linkedin-detail` compose service**
