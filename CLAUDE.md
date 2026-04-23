@@ -14,20 +14,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build all services
 docker compose build
 
-# Start API and Web UI (name services explicitly to avoid starting selenium)
-docker compose up -d api web
-# Web UI: http://localhost:8080 | API: http://localhost:5000
+# Start API and Web UI (scraper, selenium, scraper-linkedin are profile-gated)
+docker compose up -d
+# Web UI: http://localhost:8080 | API: http://localhost:5000 (internal only; access via web proxy)
 
 # Rebuild after code changes
-docker compose build api web && docker compose up -d --force-recreate api web
+docker compose build && docker compose up -d --force-recreate
 
-# Run scraper (scraper profile required for `up`; `run` works directly)
+# Run HTTP scraper — scraper profile auto-activates on `run`
 docker compose run --rm scraper
 
-# Run Selenium-based LinkedIn scraper
-docker compose build scraper-linkedin
-docker compose up -d selenium         # start browser, wait for healthy
-docker compose run --rm scraper-linkedin
+# Run Selenium-based LinkedIn scraper — selenium starts via depends_on healthcheck
+docker compose run --rm --build scraper-linkedin
 # Inspect browser live at http://localhost:7900 (noVNC, no password)
 ```
 
@@ -61,8 +59,8 @@ Three Docker services share a single SQLite file at `./out/jobhubmine.db`:
 Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (React/Nginx)
 ```
 
-- **Scraper** (`app/main.py`) — runs on-demand via `docker compose run`. `GupyScraper` and `InhireScraper` subclass `Scraper`, which defines `fetch_companies()` and `fetch_jobs(company)`. A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies. LinkedIn is handled separately by the Selenium stack under `scrapers/linkedin-ff-selenium/`.
-- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper defined in the unified compose file with `restart: "no"` so it doesn't autostart on `up`. Run on demand via `docker compose run --rm scraper-linkedin` (`selenium` service starts automatically as a `depends_on` dependency). Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
+- **HTTP Scraper** (`app/main.py` + `app/scrapers/` package) — runs on-demand via `docker compose run`. Each source is a `Scraper` subclass in `app/scrapers/<source>.py` (currently `GupyScraper`, `InhireScraper`), re-exported from `app/scrapers/__init__.py`. `KNOWN_SOURCES` in `app/main.py` gates which source names can become table-name suffixes (SQL-injection defence). A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
+- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper. The `selenium` and `scraper-linkedin` compose services sit behind the `linkedin` profile so they don't autostart on bare `up`. `docker compose run --rm scraper-linkedin` auto-activates the profile; selenium comes up via `depends_on` health check. Does not write to SQLite; outputs JSON to `/app/out/selenium/`. Configured entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
 - **API** (`api/app.py`) — five read-only Flask endpoints served by 2 Gunicorn workers. Filter logic is built dynamically in `build_filters()`.
 - **Web** (`web/src/`) — React SPA, state in `App.js`. Nginx proxies `/api/*` to Flask, eliminating CORS. `entrypoint.sh` injects `API_URL` at container start.
 
@@ -78,7 +76,12 @@ Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (
 
 ### Database Pattern
 
-Each scraper run creates `jobs_{ts}` and `companies_{ts}` timestamped tables. `run_scrap.sh` merges them into permanent `jobs_all` / `companies_all` tables via `INSERT OR IGNORE`. The API queries through the `job_details` view (denormalised join with URL construction). Schema lives in `sqlite-init.sql`.
+Per-source tables with unioned views:
+
+- Each scraper run creates `jobs_{source}_{ts}` and `companies_{source}_{ts}` timestamped tables (ts is digits-only; cross-checked against `KNOWN_SOURCES` to keep SQL-safe).
+- `sqlite-init.sql` (applied pre- and post-scrape by `run_scrap.sh`) folds rows into per-source `_latest` tables via `INSERT OR REPLACE ... WHERE '${ts}' != '0'`, then recreates `jobs_all` / `companies_all` as `UNION ALL` VIEWS over every `_latest` table. `job_details` is a second view joining `jobs_all` + `companies_all` with URL synthesis per source.
+- Pre-split DBs (where `jobs_all` was a TABLE) are migrated once on first run by `migrate-to-per-source.sql`, guarded in `run_scrap.sh` via a `sqlite_master` type check. The migration redistributes rows by `source` column and drops the legacy tables so `sqlite-init.sql` can recreate the UNION views.
+- Adding a new source means adding `CREATE TABLE` + `INSERT OR REPLACE` blocks + another `UNION ALL` arm in `sqlite-init.sql`, mirror entries in `migrate-to-per-source.sql`, a scraper class under `app/scrapers/`, and appending the source name to `KNOWN_SOURCES`.
 
 ### Selenium Scraper Internals
 
@@ -91,7 +94,7 @@ Each scraper run creates `jobs_{ts}` and `companies_{ts}` timestamped tables. `r
 - Type hints **required** on all function signatures (`typing` module).
 - Catch specific exceptions; log with `logger.error(..., exc_info=True)`.
 - Always set `timeout=` on network requests.
-- New data sources: subclass `Scraper`, implement `fetch_companies()` and `fetch_jobs()`.
+- New HTTP data sources: add `app/scrapers/<source>.py` subclassing `Scraper` (from `app/scrapers/base.py`), implement `fetch_companies()` and `fetch_jobs(company)`, re-export from `app/scrapers/__init__.py`, append name to `KNOWN_SOURCES` in `app/main.py`, and extend `sqlite-init.sql` + `migrate-to-per-source.sql` per the Database Pattern notes.
 
 ### React
 
@@ -104,11 +107,14 @@ Each scraper run creates `jobs_{ts}` and `companies_{ts}` timestamped tables. `r
 
 | File | Purpose |
 |------|---------|
-| `app/main.py` | Scraper entry point and all scraper classes |
+| `app/main.py` | HTTP scraper entry point — orchestrates the per-source scrapers, writes `jobs_{source}_{ts}` tables |
+| `app/scrapers/base.py` | `Scraper` base class + `get_http_session()` (retry/backoff) |
+| `app/scrapers/__init__.py` | Re-exports each source scraper; must register new sources here |
 | `api/app.py` | Flask endpoints and `build_filters()` helper |
-| `sqlite-init.sql` | Full DB schema — changes need migration planning |
-| `run_scrap.sh` | Validates timestamp, runs schema init, merges timestamped tables into `_all` |
-| `docker-compose.yml` | All service definitions (`scraper`, `api`, `web`, `selenium`, `scraper-linkedin`) |
+| `sqlite-init.sql` | Full DB schema: per-source tables, `_latest` tables, UNION views. Runs pre- and post-scrape; `${ts}` substituted by `run_scrap.sh` |
+| `migrate-to-per-source.sql` | One-shot migration from the pre-split `jobs_all`/`companies_all` TABLE schema; invoked conditionally by `run_scrap.sh` |
+| `run_scrap.sh` | Validates timestamp, runs schema init, conditionally applies migration, runs scraper, re-applies schema |
+| `docker-compose.yml` | All service definitions (`scraper`, `api`, `web`, `selenium`, `scraper-linkedin`). `scraper` uses the `scraper` profile; `selenium` + `scraper-linkedin` use the `linkedin` profile |
 | `.env_sample` | Unified env var defaults for all services |
 | `scrapers/linkedin-ff-selenium/app/linkedin.py` | Selenium scraper core logic |
 | `scrapers/linkedin-ff-selenium/app/config.py` | All Selenium scraper config with defaults |
