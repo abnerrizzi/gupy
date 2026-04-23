@@ -8,6 +8,12 @@ app = Flask(__name__)
 
 DATABASE = os.environ.get('JOBHUBMINE_DATABASE', '/app/out/jobhubmine.db')
 
+DETAIL_TABLES = {
+    'gupy': 'jobs_gupy_detail',
+    'inhire': 'jobs_inhire_detail',
+    'linkedin': 'jobs_linkedin_detail',
+}
+
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -252,6 +258,31 @@ def get_filters():
         'job_types': job_types,
         'sources': sources
     })
+
+
+def _lookup_source(cursor, job_id):
+    cursor.execute("SELECT source FROM jobs_all WHERE id = ? LIMIT 1", (job_id,))
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+@app.route('/api/jobs/<job_id>/detail')
+def get_job_detail(job_id):
+    db = get_db()
+    cursor = db.cursor()
+    source = _lookup_source(cursor, job_id)
+    if not source:
+        return jsonify({'error': 'Job not found'}), 404
+    table = DETAIL_TABLES.get(source)
+    if not table:
+        return jsonify({'error': f'Unknown source: {source}'}), 400
+    cursor.execute(f"SELECT * FROM {table} WHERE id = ?", (job_id,))
+    row = cursor.fetchone()
+    if not row:
+        return jsonify({'error': 'Detail not fetched yet', 'source': source}), 404
+    detail = dict(row)
+    detail['source'] = source
+    return jsonify(detail)
 
 
 @app.route('/api/jobs/<job_id>')
