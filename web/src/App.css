@@ -128,7 +128,7 @@ body {
   background-color: #fef2f2;
 }
 
-.apply-button {
+.filter-apply-button {
   padding: 0.625rem 1.25rem;
   font-size: 0.875rem;
   font-weight: 600;
@@ -140,7 +140,7 @@ body {
   transition: all 0.2s;
 }
 
-.apply-button:hover {
+.filter-apply-button:hover {
   background-color: var(--primary-hover);
   border-color: var(--primary-hover);
 }

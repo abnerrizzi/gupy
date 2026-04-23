@@ -106,7 +106,7 @@ function FilterBar({ companies, filters, selected, onChange, onReset, onApply })
         ))}
       </select>
 
-      <button className="apply-button" onClick={onApply} aria-label="Aplicar filtros / atualizar">
+      <button className="filter-apply-button" onClick={onApply} aria-label="Aplicar filtros / atualizar">
         Aplicar
       </button>
 
