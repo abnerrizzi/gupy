@@ -66,10 +66,10 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
   - Commit: `feat(api): implement gupy job detail fetcher`
   - Verified: `jobs_gupy_detail` contains job 8106014 with 2961-char description after POST.
 
-- [ ] **2.4 Inhire fetcher**
-  - [ ] `api/fetchers/inhire.py` — HTTP GET `https://{tenant}.inhire.app/vagas/{id}/description`, parse HTML, upsert.
+- [x] **2.4 Inhire fetcher**
+  - [x] `api/fetchers/inhire.py` — HTTP GET `https://api.inhire.app/job-posts/public/pages/{id}` with `x-tenant` header, upsert. (The `vagas/` URL from the plan is a client-side React route; the JSON API is here.)
   - Commit: `feat(api): implement inhire job detail fetcher`
-  - Acceptance: same shape as 2.3 against an inhire job id.
+  - Verified: `jobs_inhire_detail` contains job d963cfa7-… with CLT contract + on-site + 2493-char description.
 
 ## EPIC 3 — LinkedIn detail sidecar
 
