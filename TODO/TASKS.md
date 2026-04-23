@@ -46,9 +46,9 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
 
 ## EPIC 2 — API: detail read + trigger
 
-- [ ] **2.1 `GET /api/jobs/<job_id>/detail`**
-  - [ ] SELECT from the right `jobs_{source}_detail` table based on the job's `source`.
-  - [ ] 404 when no row exists.
+- [x] **2.1 `GET /api/jobs/<job_id>/detail`**
+  - [x] SELECT from the right `jobs_{source}_detail` table based on the job's `source`.
+  - [x] 404 when no row exists.
   - Commit: `feat(api): add GET job detail endpoint`
   - Acceptance: `curl http://localhost:8080/api/jobs/<id>/detail` returns 404 for an unfetched job.
 
