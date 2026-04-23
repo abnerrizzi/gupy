@@ -79,10 +79,10 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
   - [x] Calls existing `LinkedInSeleniumScraper.scrape_detail_page()` and upserts into `jobs_linkedin_detail`.
   - Commit: `feat(linkedin): add on-demand detail fetch server`
 
-- [ ] **3.2 `linkedin-detail` compose service**
-  - [ ] Same image as `scraper-linkedin`, different entrypoint.
-  - [ ] `linkedin` profile; `depends_on: selenium` with condition `service_healthy`.
-  - [ ] Mount `./out:/app/out` for shared DB access.
+- [x] **3.2 `linkedin-detail` compose service**
+  - [x] Same image as `scraper-linkedin`, different entrypoint (`python3 -m app.detail_server`).
+  - [x] `linkedin` profile; `depends_on: selenium` with condition `service_healthy`.
+  - [x] Mount `./out:/app/out` for shared DB access; exposes port 8000 to the compose network.
   - Commit: `feat(compose): add linkedin-detail sidecar service`
 
 - [ ] **3.3 API → sidecar proxy + nginx timeout**
