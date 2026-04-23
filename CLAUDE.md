@@ -80,6 +80,7 @@ Per-source tables with unioned views:
 
 - Each scraper run creates `jobs_{source}_{ts}` and `companies_{source}_{ts}` timestamped tables (ts is digits-only; cross-checked against `KNOWN_SOURCES` to keep SQL-safe).
 - `sqlite-init.sql` (applied pre- and post-scrape by `run_scrap.sh`) folds rows into per-source `_latest` tables via `INSERT OR REPLACE ... WHERE '${ts}' != '0'`, then recreates `jobs_all` / `companies_all` as `UNION ALL` VIEWS over every `_latest` table. `job_details` is a second view joining `jobs_all` + `companies_all` with URL synthesis per source.
+- Per-source `<SOURCE>_WRITE_MODE` env var controls merge semantics: `replace` (default for gupy/inhire) wipes `_latest` before merging this run so dropped IDs disappear; `append` (default for linkedin) keeps prior rows. An `EXISTS` guard in `sqlite-init.sql` ensures an empty/failed run never wipes good data.
 - Pre-split DBs (where `jobs_all` was a TABLE) are migrated once on first run by `migrate-to-per-source.sql`, guarded in `run_scrap.sh` via a `sqlite_master` type check. The migration redistributes rows by `source` column and drops the legacy tables so `sqlite-init.sql` can recreate the UNION views.
 - Adding a new source means adding `CREATE TABLE` + `INSERT OR REPLACE` blocks + another `UNION ALL` arm in `sqlite-init.sql`, mirror entries in `migrate-to-per-source.sql`, a scraper class under `app/scrapers/`, and appending the source name to `KNOWN_SOURCES`.
 

@@ -157,22 +157,49 @@ CREATE TABLE IF NOT EXISTS companies_linkedin_${ts} (
 
 -- 3. DATA MIGRATION
 -- Per-source merge from current run timestamped tables into latest tables.
--- If ${ts} is 0, these are no-ops.
+-- If ${ts} is 0, these are no-ops. When ${<source>_mode} is 'replace', the
+-- _latest table is wiped first so the current run becomes the authoritative
+-- snapshot (IDs absent from this run are dropped). The EXISTS guard ensures
+-- an empty/failed run never wipes previously-good data.
+DELETE FROM jobs_gupy_latest
+WHERE '${gupy_mode}' = 'replace'
+  AND '${ts}' != '0'
+  AND EXISTS (SELECT 1 FROM jobs_gupy_${ts} LIMIT 1);
 INSERT OR REPLACE INTO jobs_gupy_latest
 SELECT * FROM jobs_gupy_${ts} WHERE '${ts}' != '0';
 
+DELETE FROM jobs_inhire_latest
+WHERE '${inhire_mode}' = 'replace'
+  AND '${ts}' != '0'
+  AND EXISTS (SELECT 1 FROM jobs_inhire_${ts} LIMIT 1);
 INSERT OR REPLACE INTO jobs_inhire_latest
 SELECT * FROM jobs_inhire_${ts} WHERE '${ts}' != '0';
 
+DELETE FROM jobs_linkedin_latest
+WHERE '${linkedin_mode}' = 'replace'
+  AND '${ts}' != '0'
+  AND EXISTS (SELECT 1 FROM jobs_linkedin_${ts} LIMIT 1);
 INSERT OR REPLACE INTO jobs_linkedin_latest
 SELECT * FROM jobs_linkedin_${ts} WHERE '${ts}' != '0';
 
+DELETE FROM companies_gupy_latest
+WHERE '${gupy_mode}' = 'replace'
+  AND '${ts}' != '0'
+  AND EXISTS (SELECT 1 FROM companies_gupy_${ts} LIMIT 1);
 INSERT OR REPLACE INTO companies_gupy_latest
 SELECT * FROM companies_gupy_${ts} WHERE '${ts}' != '0';
 
+DELETE FROM companies_inhire_latest
+WHERE '${inhire_mode}' = 'replace'
+  AND '${ts}' != '0'
+  AND EXISTS (SELECT 1 FROM companies_inhire_${ts} LIMIT 1);
 INSERT OR REPLACE INTO companies_inhire_latest
 SELECT * FROM companies_inhire_${ts} WHERE '${ts}' != '0';
 
+DELETE FROM companies_linkedin_latest
+WHERE '${linkedin_mode}' = 'replace'
+  AND '${ts}' != '0'
+  AND EXISTS (SELECT 1 FROM companies_linkedin_${ts} LIMIT 1);
 INSERT OR REPLACE INTO companies_linkedin_latest
 SELECT * FROM companies_linkedin_${ts} WHERE '${ts}' != '0';
 

@@ -28,13 +28,43 @@ db_file="jobhubmine.db"
 
 echo "Starting job scraping..."
 
+# Per-source write mode for _latest tables: 'replace' wipes _latest before
+# merging this run; 'append' keeps prior rows (legacy behaviour).
+# Strip trailing whitespace/inline-comments that some env_file parsers keep
+# in the value (e.g. `GUPY_WRITE_MODE=append # note`), otherwise a `#` inside
+# the value breaks the sed `s#...#...#g` substitution below.
+sanitize_mode() {
+  # Default, then keep only the first token before any whitespace or '#'.
+  _val="${1:-$2}"
+  _val="${_val%%#*}"
+  for _tok in $_val; do echo "$_tok"; return; done
+  echo "$2"
+}
+validate_mode() {
+  case "$1" in
+    replace|append) ;;
+    *) echo "Error: $2 must be 'replace' or 'append', got: '$1'"; exit 1 ;;
+  esac
+}
+gupy_mode=$(sanitize_mode "${GUPY_WRITE_MODE-}" replace)
+inhire_mode=$(sanitize_mode "${INHIRE_WRITE_MODE-}" replace)
+linkedin_mode=$(sanitize_mode "${LINKEDIN_WRITE_MODE-}" append)
+validate_mode "$gupy_mode" GUPY_WRITE_MODE
+validate_mode "$inhire_mode" INHIRE_WRITE_MODE
+validate_mode "$linkedin_mode" LINKEDIN_WRITE_MODE
+
 # Phase 1: Ensure database schema exists (Initial run safety for API)
 if [ ! -f "$folder/$db_file" ]; then
   echo "Initializing database schema..."
   # Use /tmp for temporary files to avoid permission issues in mounted volumes
   temp_init_sql="/tmp/init-schema.sql"
-  # Use '0' as a dummy timestamp for initialization
-  sed "s#\${ts}#0#g" sqlite-init.sql > "$temp_init_sql"
+  # Use '0' as a dummy timestamp and 'append' modes so the conditional DELETEs
+  # never fire during first-run schema creation.
+  sed -e "s#\${ts}#0#g" \
+      -e "s#\${gupy_mode}#append#g" \
+      -e "s#\${inhire_mode}#append#g" \
+      -e "s#\${linkedin_mode}#append#g" \
+      sqlite-init.sql > "$temp_init_sql"
   sqlite3 "$folder/$db_file" < "$temp_init_sql"
   rm -f "$temp_init_sql"
 fi
@@ -60,9 +90,13 @@ if [ ! -f "${folder}/${db_file}" ]; then
 fi
 
 echo "Applying database schema and creating views..."
-# Apply the SQL initialization script (Liquibase-like approach) 
+# Apply the SQL initialization script (Liquibase-like approach)
 temp_sqlfile="/tmp/${ts}-sqlite-init.sql"
-sed "s#\${ts}#${ts}#g" sqlite-init.sql > "$temp_sqlfile"
+sed -e "s#\${ts}#${ts}#g" \
+    -e "s#\${gupy_mode}#${gupy_mode}#g" \
+    -e "s#\${inhire_mode}#${inhire_mode}#g" \
+    -e "s#\${linkedin_mode}#${linkedin_mode}#g" \
+    sqlite-init.sql > "$temp_sqlfile"
 
 
 if ! (sqlite3 "$folder/$db_file" < "$temp_sqlfile"); then 
