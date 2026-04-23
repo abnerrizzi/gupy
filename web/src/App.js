@@ -149,6 +149,10 @@ function App() {
     setPage(0);
   };
 
+  const handleApplyFilters = () => {
+    fetchJobs();
+  };
+
   const handleJobClick = (job) => {
     setSelectedJob(job);
   };
@@ -207,6 +211,7 @@ function App() {
             }}
             onChange={handleFilterChange}
             onReset={handleResetFilters}
+            onApply={handleApplyFilters}
           />
         )}
 

@@ -12,9 +12,9 @@ def write_json_output(
     keywords: str,
     location: str,
     output_dir: str,
+    ts: str,
 ) -> str:
     os.makedirs(output_dir, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = f"linkedin_{ts}.json"
     filepath = os.path.join(output_dir, filename)
 

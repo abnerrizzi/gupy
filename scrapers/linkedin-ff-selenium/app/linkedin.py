@@ -73,7 +73,19 @@ class LinkedInSeleniumScraper:
                     return total
             except NoSuchElementException:
                 continue
-        logger.warning("Could not determine total jobs count from page")
+        try:
+            card_count = len(self.driver.find_elements(
+                By.CSS_SELECTOR, "ul.jobs-search__results-list li"
+            ))
+        except WebDriverException:
+            card_count = 0
+        if card_count > 0:
+            logger.info(
+                "Total jobs header not found — falling back to rendered card count: %d",
+                card_count,
+            )
+            return card_count
+        logger.warning("Could not determine total jobs count from page (no header, no cards)")
         return 0
 
     def _save_page_source(self, label: str) -> None:
