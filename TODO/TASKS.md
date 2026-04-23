@@ -30,10 +30,10 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
   - [x] Record the decision (column names/types) below in the **Decisions** section.
   - Commit: `docs(tasks): lock per-source detail column list`
 
-- [ ] **1.2 Add detail tables + extend `job_details` view**
-  - [ ] `CREATE TABLE IF NOT EXISTS jobs_gupy_detail` in `sqlite-init.sql`.
-  - [ ] Same for `jobs_inhire_detail` and `jobs_linkedin_detail`.
-  - [ ] Extend the `job_details` view with LEFT JOINs → adds `has_detail` and `detail_fetched_at` columns.
+- [x] **1.2 Add detail tables + extend `job_details` view**
+  - [x] `CREATE TABLE IF NOT EXISTS jobs_gupy_detail` in `sqlite-init.sql`.
+  - [x] Same for `jobs_inhire_detail` and `jobs_linkedin_detail`.
+  - [x] Extend the `job_details` view with LEFT JOINs → adds `has_detail` and `detail_fetched_at` columns.
   - Commit: `feat(db): add per-source job detail tables and view fields`
   - Acceptance:
     ```bash
