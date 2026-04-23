@@ -73,3 +73,27 @@ services:
     restart: "no"
     profiles:
       - linkedin
+
+  linkedin-detail:
+    build:
+      context: ./scrapers/linkedin-ff-selenium
+      dockerfile: Dockerfile
+    depends_on:
+      selenium:
+        condition: service_healthy
+    env_file:
+      - .env_sample
+      - path: .env
+        required: false
+    environment:
+      - SELENIUM_URL=http://selenium:4444/wd/hub
+    command: ["python3", "-m", "app.detail_server"]
+    volumes:
+      - ./scrapers/linkedin-ff-selenium/logs:/app/logs
+      - ./out:/app/out
+      - ./sqlite-init.sql:/app/sqlite-init.sql:ro
+    expose:
+      - "8000"
+    restart: unless-stopped
+    profiles:
+      - linkedin
