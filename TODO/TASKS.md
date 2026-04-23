@@ -109,11 +109,10 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
 
 ## EPIC 5 — E2E smoke test
 
-- [ ] **5.1 Exercise Sync for one job per source**
-  - [ ] Gupy: sync, confirm `jobs_gupy_detail` row, confirm modal renders.
-  - [ ] Inhire: sync, confirm `jobs_inhire_detail` row, confirm modal renders.
-  - [ ] LinkedIn: sync, confirm `jobs_linkedin_detail` row, confirm modal renders.
-  - [ ] Record findings in **E2E results** section below.
+- [x] **5.1 Exercise Sync for one job per source**
+  - [x] Gupy — job `8268192` → `jobs_gupy_detail` row (`remote`, 2972-char description).
+  - [x] Inhire — job `8c69a501-541f-4ff1-9135-58d96141f9d4` → `jobs_inhire_detail` row (`CLT`, `On-site`, 4646-char description).
+  - [x] LinkedIn — job `4244881112` → `jobs_linkedin_detail` row (`Entry level`, `Full-time`, 1816-char description). First attempt exposed a Selenium-session-GC bug (cached driver went stale after ~3 min idle); fixed by `fix(linkedin): rebuild driver when selenium session expires`.
   - Commit: `docs: record detail-fetch e2e smoke test results`
 
 ---
@@ -138,4 +137,12 @@ Note: Gupy/Inhire `description*` fields are HTML and must be sanitized (`DOMPuri
 
 ## E2E results (filled in during 5.1)
 
-_To be filled._
+Smoke test run on 2026-04-23, main branch at `a3d758f`, against the live prod DB at `./out/jobhubmine.db` (34602 gupy + 5503 inhire + 69 linkedin rows).
+
+| Source   | Job id                                  | Before sync | POST status | `jobs_{source}_detail` row                                                             | `job_details.has_detail` |
+| -------- | --------------------------------------- | ----------- | ----------- | -------------------------------------------------------------------------------------- | ------------------------ |
+| gupy     | `8268192`                               | 404         | 200         | workplace `remote`, 2972-char description                                              | 1                        |
+| inhire   | `8c69a501-541f-4ff1-9135-58d96141f9d4`  | 404         | 200         | `CLT`, `On-site`, 4646-char description                                                | 1                        |
+| linkedin | `4244881112`                            | 404         | 200 (retry) | `Entry level`, `Full-time`, 1816-char description                                      | 1                        |
+
+**Bug found during the LinkedIn run:** the Selenium hub GCs sessions that are idle for >~3 min. The sidecar cached the first `LinkedInSeleniumScraper` instance forever, so after sitting idle between gupy+inhire fetches and the linkedin one, every request hit a dead session and returned "no description". Fixed in `fix(linkedin): rebuild driver when selenium session expires` — the sidecar now probes `driver.title` after an empty result and rebuilds the driver once before giving up.
