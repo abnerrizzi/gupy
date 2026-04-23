@@ -99,16 +99,13 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
   - [x] Added `.detail-button` styles in `App.css`.
   - Commit: `feat(web): add detail button column`
 
-- [ ] **4.2 Sync action in `JobDetails.jsx`**
-  - [ ] When `job.has_detail` is false, render a **Sync** button with a spinner while the POST is in-flight.
-  - [ ] AbortController-based cleanup (match `App.js` style).
-  - Commit: `feat(web): add sync action when detail missing`
-
-- [ ] **4.3 Render fetched payload**
-  - [ ] Header: title, company, workplace type, link, source badge.
-  - [ ] Below: compact grid of source-specific fields (description HTML rendered via `DOMPurify.sanitize`).
-  - [ ] Add `dompurify` to `web/package.json`; add `.detail-button` + `.detail-grid` to `App.css`.
-  - Commit: `feat(web): render fetched job detail payload`
+- [x] **4.2 + 4.3 Sync action + render fetched payload in `JobDetails.jsx`** (combined — tightly coupled)
+  - [x] App.js tracks `jobDetail`/`detailLoading`/`detailError`; auto-GETs on `selectedJob` change; `handleSyncDetail` does the POST.
+  - [x] Modal shows main fields (title, company, workplace type, link, source badge) + external-link button.
+  - [x] Two-state body: **Sincronizar detalhe** button when no detail; `SourceDetail` component with source-specific fields + `DOMPurify.sanitize`-rendered HTML when present.
+  - [x] LinkedIn description rendered as plain text (`white-space: pre-wrap`), not HTML.
+  - [x] Added `dompurify` to `web/package.json`; added `.detail-section*`, `.detail-html`, `.detail-grid`, `.sync-button` styles to `App.css`.
+  - Commit: `feat(web): add sync action and render detail payload in modal`
 
 ## EPIC 5 — E2E smoke test
 
