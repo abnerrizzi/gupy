@@ -2,9 +2,13 @@
 import os
 import sqlite3
 import json
+import logging
 from flask import Flask, request, jsonify, g
 
+from fetchers import FETCHERS, FetchError
+
 app = Flask(__name__)
+logger = logging.getLogger(__name__)
 
 DATABASE = os.environ.get('JOBHUBMINE_DATABASE', '/app/out/jobhubmine.db')
 
@@ -15,12 +19,42 @@ DETAIL_TABLES = {
 }
 
 
+def _enable_wal(db):
+    # Enable WAL once per DB file so the API and a concurrent scraper run
+    # don't block each other. Idempotent — safe on every open.
+    db.execute('PRAGMA journal_mode=WAL')
+
+
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
         db.row_factory = sqlite3.Row
+        _enable_wal(db)
     return db
+
+
+def upsert_detail(db, source: str, job_id: str, fields: dict) -> dict:
+    """Insert-or-replace a detail row. `fields` keys must match the columns of
+    the target table (minus `id` and `fetched_at`, which are set here).
+    Returns the persisted row as a dict (source-agnostic caller contract)."""
+    table = DETAIL_TABLES[source]
+    from datetime import datetime, timezone
+    fetched_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
+    cols = ['id'] + list(fields.keys()) + ['fetched_at']
+    placeholders = ','.join(['?'] * len(cols))
+    values = [job_id] + list(fields.values()) + [fetched_at]
+    db.execute(
+        f"INSERT OR REPLACE INTO {table} ({','.join(cols)}) VALUES ({placeholders})",
+        values,
+    )
+    db.commit()
+    cursor = db.cursor()
+    cursor.execute(f"SELECT * FROM {table} WHERE id = ?", (job_id,))
+    row = cursor.fetchone()
+    result = dict(row)
+    result['source'] = source
+    return result
 
 
 @app.teardown_appcontext
@@ -264,6 +298,45 @@ def _lookup_source(cursor, job_id):
     cursor.execute("SELECT source FROM jobs_all WHERE id = ? LIMIT 1", (job_id,))
     row = cursor.fetchone()
     return row[0] if row else None
+
+
+def _lookup_job_context(cursor, job_id):
+    cursor.execute(
+        """
+        SELECT j.source, j.company_id, j.title, c.name AS company_name,
+               c.career_page_url
+        FROM jobs_all j
+        LEFT JOIN companies_all c ON j.company_id = c.id
+        WHERE j.id = ?
+        LIMIT 1
+        """,
+        (job_id,),
+    )
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+@app.route('/api/jobs/<job_id>/detail/fetch', methods=['POST'])
+def fetch_job_detail(job_id):
+    db = get_db()
+    cursor = db.cursor()
+    ctx = _lookup_job_context(cursor, job_id)
+    if not ctx:
+        return jsonify({'error': 'Job not found'}), 404
+    source = ctx['source']
+    fetcher = FETCHERS.get(source)
+    if not fetcher:
+        return jsonify({'error': f'Unknown source: {source}'}), 400
+    try:
+        fields = fetcher(job_id=job_id, context=ctx)
+    except NotImplementedError as exc:
+        return jsonify({'error': str(exc), 'source': source}), 501
+    except FetchError as exc:
+        logger.error("detail fetch failed for %s/%s: %s", source, job_id, exc,
+                     exc_info=True)
+        return jsonify({'error': str(exc), 'source': source}), 502
+    detail = upsert_detail(db, source, job_id, fields)
+    return jsonify(detail)
 
 
 @app.route('/api/jobs/<job_id>/detail')
