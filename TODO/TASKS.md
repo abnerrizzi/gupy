@@ -93,9 +93,10 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
 
 ## EPIC 4 — UI: Detail button + two-state modal
 
-- [ ] **4.1 Detail column in `JobTable.jsx`**
-  - [ ] Add an action column with a **Detail** button per row.
-  - [ ] Clicking sets `selectedJob` (same flow as the existing row click).
+- [x] **4.1 Detail column in `JobTable.jsx`**
+  - [x] Add an action column with a **Detalhe** button per row.
+  - [x] Clicking sets `selectedJob` (same flow as the existing row click) and `stopPropagation` prevents double-fire.
+  - [x] Added `.detail-button` styles in `App.css`.
   - Commit: `feat(web): add detail button column`
 
 - [ ] **4.2 Sync action in `JobDetails.jsx`**
