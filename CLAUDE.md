@@ -61,7 +61,7 @@ Three Docker services share a single SQLite file at `./out/jobhubmine.db`:
 Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (React/Nginx)
 ```
 
-- **Scraper** (`app/main.py`) — runs on-demand via `docker compose run`. `GupyScraper`, `InhireScraper`, and `LinkedInScraper` subclass `Scraper`, which defines `fetch_companies()` and `fetch_jobs(company)`. A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
+- **Scraper** (`app/main.py`) — runs on-demand via `docker compose run`. `GupyScraper` and `InhireScraper` subclass `Scraper`, which defines `fetch_companies()` and `fetch_jobs(company)`. A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies. LinkedIn is handled separately by the Selenium stack under `scrapers/linkedin-ff-selenium/`.
 - **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper defined in the unified compose file with `restart: "no"` so it doesn't autostart on `up`. Run on demand via `docker compose run --rm scraper-linkedin` (`selenium` service starts automatically as a `depends_on` dependency). Does not write to SQLite; outputs JSON to `/app/out/`. Controlled entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
 - **API** (`api/app.py`) — five read-only Flask endpoints served by 2 Gunicorn workers. Filter logic is built dynamically in `build_filters()`.
 - **Web** (`web/src/`) — React SPA, state in `App.js`. Nginx proxies `/api/*` to Flask, eliminating CORS. `entrypoint.sh` injects `API_URL` at container start.
