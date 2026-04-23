@@ -32,3 +32,8 @@ LOG_BACKUP_COUNT: int = int(os.environ.get("LOG_BACKUP_COUNT", "5"))
 
 # Output
 OUTPUT_DIR: str = os.environ.get("OUTPUT_DIR", "/app/out")
+
+# SQLite persistence
+DB_PATH: str = os.environ.get("DB_PATH", "/app/out/jobhubmine.db")
+SQLITE_INIT_SQL: str = os.environ.get("SQLITE_INIT_SQL", "/app/sqlite-init.sql")
+LINKEDIN_WRITE_MODE: str = os.environ.get("LINKEDIN_WRITE_MODE", "append").strip().split("#")[0].strip() or "append"

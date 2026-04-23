@@ -68,7 +68,7 @@ Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (
 ```
 
 - **HTTP Scraper** (`app/main.py` + `app/scrapers/` package) — runs on-demand via `docker compose run`. Each source is a `Scraper` subclass in `app/scrapers/<source>.py` (currently `GupyScraper`, `InhireScraper`), re-exported from `app/scrapers/__init__.py`. `KNOWN_SOURCES` in `app/main.py` gates which source names can become table-name suffixes (SQL-injection defence). A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
-- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper. The `selenium` and `scraper-linkedin` compose services sit behind the `linkedin` profile so they don't autostart on bare `up`. `docker compose run --rm scraper-linkedin` auto-activates the profile; selenium comes up via `depends_on` health check. Does not write to SQLite; outputs JSON to `/app/out/selenium/`. Configured entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
+- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper. The `selenium` and `scraper-linkedin` compose services sit behind the `linkedin` profile so they don't autostart on bare `up`. `docker compose run --rm scraper-linkedin` auto-activates the profile; selenium comes up via `depends_on` health check. Writes `out/linkedin_<ts>.json` AND loads rows into `jobs_linkedin_{ts}` / `companies_linkedin_{ts}` → merged into `_latest` via `sqlite-init.sql` (mounted read-only into the container). Unlike the HTTP scraper, it orchestrates its own schema init + merge in-process (see `app/db.py`) — it does not go through `run_scrap.sh`. Configured entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
 - **API** (`api/app.py`) — five read-only Flask endpoints served by 2 Gunicorn workers. Filter logic is built dynamically in `build_filters()`.
 - **Web** (`web/src/`) — React SPA, state in `App.js`. Nginx proxies `/api/*` to Flask, eliminating CORS. `entrypoint.sh` injects `API_URL` at container start.
 
@@ -94,7 +94,9 @@ Per-source tables with unioned views:
 
 ### Selenium Scraper Internals
 
-`scrapers/linkedin-ff-selenium/app/linkedin.py` — `LinkedInSeleniumScraper.scrape_by_scrolling()` is the core loop: queries the card list, scrolls each card into center view (triggering LinkedIn's lazy loader), parses it immediately, then waits up to `SCROLL_WAIT_RETRIES × SCROLL_WAIT_SECONDS` for new cards before stopping. No detail page navigation — card-level data only.
+`scrapers/linkedin-ff-selenium/app/linkedin.py` — `LinkedInSeleniumScraper.scrape_by_scrolling()` is the core loop: queries the card list, scrolls each card into center view (triggering LinkedIn's lazy loader), parses it immediately, then waits up to `SCROLL_WAIT_RETRIES × SCROLL_WAIT_SECONDS` for new cards before stopping. No detail page navigation — card-level data only. `_get_total_jobs()` falls back to counting rendered DOM cards when LinkedIn's results-header selectors don't match.
+
+`scrapers/linkedin-ff-selenium/app/db.py` — `load_jobs_to_db()` re-reads the shared `sqlite-init.sql`, substitutes `${ts}` / `${*_mode}` placeholders in Python (same keys `run_scrap.sh:95-99` uses), and runs a three-phase merge: (A) apply schema with real `ts` + `linkedin_mode='append'` so staging tables get created and the merge DELETE/INSERT are no-ops via the `EXISTS` guard; (B) `INSERT OR IGNORE` the scraped rows into `jobs_linkedin_{ts}` / `companies_linkedin_{ts}`; (C) re-apply schema with the real `LINKEDIN_WRITE_MODE` so the merge into `_latest` actually fires. LinkedIn cards lack a stable company ID, so `_slugify(company_name)` derives one; the per-job URL is synthesised in the `job_details` view CASE (`https://www.linkedin.com/jobs/view/{id}`), not stored.
 
 ## Code Style
 
@@ -126,4 +128,5 @@ Per-source tables with unioned views:
 | `docker-compose.yml` | All service definitions (`scraper`, `api`, `web`, `selenium`, `scraper-linkedin`). `scraper` uses the `scraper` profile; `selenium` + `scraper-linkedin` use the `linkedin` profile |
 | `.env_sample` | Unified env var defaults for all services |
 | `scrapers/linkedin-ff-selenium/app/linkedin.py` | Selenium scraper core logic |
+| `scrapers/linkedin-ff-selenium/app/db.py` | In-process SQLite loader — renders `sqlite-init.sql` in Python and merges scraped cards into `_latest` |
 | `scrapers/linkedin-ff-selenium/app/config.py` | All Selenium scraper config with defaults |

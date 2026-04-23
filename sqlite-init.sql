@@ -254,6 +254,8 @@ CREATE VIEW job_details AS
                 END
             WHEN j.source = 'inhire' THEN
                 'https://' || j.company_id || '.inhire.app/vagas/' || j.id || '/description'
+            WHEN j.source = 'linkedin' THEN
+                'https://www.linkedin.com/jobs/view/' || j.id
             ELSE
                 COALESCE(rtrim(c.career_page_url, '/'), '') || '/jobs/' || j.id
         END AS job_url,
