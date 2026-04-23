@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
-function FilterBar({ companies, filters, selected, onChange, onReset }) {
+function FilterBar({ companies, filters, selected, onChange, onReset, onApply }) {
   const handleChange = (key) => (e) => {
     onChange(key, e.target.value);
   };
@@ -106,6 +106,10 @@ function FilterBar({ companies, filters, selected, onChange, onReset }) {
         ))}
       </select>
 
+      <button className="apply-button" onClick={onApply} aria-label="Aplicar filtros / atualizar">
+        Aplicar
+      </button>
+
       <button className="reset-button" onClick={onReset}>
         Limpar Filtros
       </button>
@@ -137,6 +141,7 @@ FilterBar.propTypes = {
   }).isRequired,
   onChange: PropTypes.func.isRequired,
   onReset: PropTypes.func.isRequired,
+  onApply: PropTypes.func.isRequired,
 };
 
 export default FilterBar;
