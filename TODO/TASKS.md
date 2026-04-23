@@ -85,15 +85,11 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
   - [x] Mount `./out:/app/out` for shared DB access; exposes port 8000 to the compose network.
   - Commit: `feat(compose): add linkedin-detail sidecar service`
 
-- [ ] **3.3 API → sidecar proxy + nginx timeout**
-  - [ ] `api/fetchers/linkedin.py` POSTs to `http://linkedin-detail:8000/fetch/<id>`, 90 s timeout.
-  - [ ] `web/nginx.conf`: `proxy_read_timeout 120s;` on the `/api/` location.
+- [x] **3.3 API → sidecar proxy + nginx timeout**
+  - [x] `api/fetchers/linkedin.py` POSTs to `http://linkedin-detail:8000/fetch/<id>`, 90 s timeout.
+  - [x] `web/nginx.conf`: `proxy_read_timeout 120s;` on the `/api/` location.
   - Commit: `feat(api): proxy linkedin detail fetches to sidecar`
-  - Acceptance:
-    ```bash
-    docker compose --profile linkedin up -d
-    curl -X POST http://localhost:8080/api/jobs/<linkedin_id>/detail/fetch
-    ```
+  - Verified: job 4382440286 (Natura Tech Leader) returns `Mid-Senior level / Full-time / 1683-char description` after ~30 s round-trip.
 
 ## EPIC 4 — UI: Detail button + two-state modal
 
