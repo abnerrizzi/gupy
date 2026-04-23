@@ -59,17 +59,12 @@ Web SPA ──POST /api/jobs/:id/detail/fetch──▶ api (Flask)
   - [x] No per-source fetch code yet — each branch raises `NotImplementedError` (501).
   - Commit: `feat(api): add detail fetch skeleton and wal mode`
 
-- [ ] **2.3 Gupy fetcher**
-  - [ ] New package `api/fetchers/` (import `base.py` copied from `app/scrapers/`).
-  - [ ] `api/fetchers/gupy.py` — HTTP GET the job posting URL, parse `__NEXT_DATA__`, upsert.
-  - [ ] Wire into the POST endpoint.
+- [x] **2.3 Gupy fetcher**
+  - [x] New package `api/fetchers/` (import `base.py` copied from `app/scrapers/`).
+  - [x] `api/fetchers/gupy.py` — HTTP GET the job posting URL, parse `__NEXT_DATA__`, upsert.
+  - [x] Wired into the POST endpoint via `FETCHERS` dict.
   - Commit: `feat(api): implement gupy job detail fetcher`
-  - Acceptance:
-    ```bash
-    curl -X POST http://localhost:8080/api/jobs/<gupy_id>/detail/fetch
-    docker compose run --rm --no-deps --entrypoint sqlite3 scraper /app/out/jobhubmine.db \
-      "SELECT id, fetched_at FROM jobs_gupy_detail;"
-    ```
+  - Verified: `jobs_gupy_detail` contains job 8106014 with 2961-char description after POST.
 
 - [ ] **2.4 Inhire fetcher**
   - [ ] `api/fetchers/inhire.py` — HTTP GET `https://{tenant}.inhire.app/vagas/{id}/description`, parse HTML, upsert.
