@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
 from app import config
@@ -48,9 +49,11 @@ def main() -> None:
     )
 
     from app.browser import BrowserSession
+    from app.db import load_jobs_to_db
     from app.linkedin import LinkedInSeleniumScraper
     from app.output import write_json_output
 
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     session = BrowserSession(config.SELENIUM_URL, config.BROWSER_TIMEOUT)
 
     try:
@@ -61,7 +64,22 @@ def main() -> None:
             location=config.LINKEDIN_LOCATION,
             limit=config.LINKEDIN_JOB_LIMIT,
         )
-        write_json_output(jobs, config.LINKEDIN_KEYWORDS, config.LINKEDIN_LOCATION, config.OUTPUT_DIR)
+        write_json_output(
+            jobs, config.LINKEDIN_KEYWORDS, config.LINKEDIN_LOCATION, config.OUTPUT_DIR, ts=ts,
+        )
+        try:
+            load_jobs_to_db(
+                jobs,
+                ts=ts,
+                db_path=config.DB_PATH,
+                sqlite_init_sql=config.SQLITE_INIT_SQL,
+                write_mode=config.LINKEDIN_WRITE_MODE,
+                keywords=config.LINKEDIN_KEYWORDS,
+                location=config.LINKEDIN_LOCATION,
+            )
+        except Exception as db_err:
+            logger.error("DB load failed (JSON retained at %s): %s",
+                         config.OUTPUT_DIR, db_err, exc_info=True)
         logger.info("Done.")
     except Exception as e:
         logger.exception("Unhandled exception: %s", e)
