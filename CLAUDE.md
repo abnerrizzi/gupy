@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Core Mandates
 
-1. **DOCKER ONLY:** Never run the application locally. Always use Docker Compose.
+1. **DOCKER ONLY:** Every project binary runs in a container — scraper, API, web, *and* ad-hoc validation (`sqlite3`, `flake8`, `npm`, `python3`). Never invoke them on the host, even for throwaway checks. Host tools reachable over the wire (e.g. `curl` against a published port) are fine.
 2. **CONVENTIONAL COMMITS:** `type(scope): description` — max 70 chars, one line. Types: `feat`, `fix`, `refactor`, `chore`, `docs`.
 3. **SOURCE AGNOSTIC:** Use generic "data source" terminology. Configure via `<SOURCE>_` prefix env vars.
 
@@ -31,24 +31,32 @@ docker compose run --rm --build scraper-linkedin
 
 ### Linting
 
+CI runs flake8 across the whole repo in two passes (`.github/workflows/ci.yml`):
+1. Strict: `flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics` — fails build on syntax errors / undefined names.
+2. Non-fatal: `flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics`.
+
+Locally (no project image ships flake8 / node, so use ephemeral containers):
+
 ```bash
-# Python syntax check
-python3 -m py_compile app/main.py api/app.py
+# Python lint (matches CI pass 1)
+docker run --rm -v "$PWD:/src" -w /src python:3.12-slim sh -c 'pip install -q flake8 && flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics'
 
-# Python style (CI uses: E9,F63,F7,F82 + W503 warning)
-flake8 app/main.py api/app.py
-
-# React (validates build + JS errors)
-cd web && npm run build
+# React build validation
+docker compose build web
 ```
 
 ### Manual Validation (no automated test suite)
 
+The API is `expose: 5000` (internal to the compose network), reachable only via the web proxy at `localhost:8080/api/*`.
+
 ```bash
-sqlite3 out/jobhubmine.db "SELECT COUNT(*) FROM jobs_all;"
-curl http://localhost:5000/api/health
-curl http://localhost:5000/api/filters
-curl "http://localhost:5000/api/jobs?limit=10&offset=0"
+# SQLite via the scraper image (it already has sqlite3)
+docker compose run --rm --no-deps --entrypoint sqlite3 scraper /app/out/jobhubmine.db "SELECT COUNT(*) FROM jobs_all;"
+
+# API (through web proxy)
+curl http://localhost:8080/api/health
+curl http://localhost:8080/api/filters
+curl "http://localhost:8080/api/jobs?limit=10&offset=0"
 ```
 
 ## Architecture
