@@ -95,7 +95,11 @@ def load_jobs_to_db(
 
     conn = sqlite3.connect(db_path)
     try:
-        conn.executescript(_render_sql(template, ts="0", linkedin_mode="append"))
+        # Phase A: ensure schema (incl. staging tables for this ts). Staging is
+        # empty at this point so the merge DELETE/INSERT blocks are no-ops via
+        # the EXISTS guard in sqlite-init.sql. Force 'append' mode here so the
+        # real DELETE only fires once, in Phase C with staging populated.
+        conn.executescript(_render_sql(template, ts=ts, linkedin_mode="append"))
 
         cursor = conn.cursor()
         cursor.executemany(
