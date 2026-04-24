@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import DOMPurify from 'dompurify';
 import JsonTree from './JsonTree';
 import { formatWorkplaceType, formatJobType } from '../utils/formatters';
+import { extractCommonFacts, formatRelative } from '../utils/detailFields';
 
 function pickRawJson(detail) {
   if (!detail) return null;
@@ -26,50 +27,45 @@ function renderTextBlock(text) {
   return <div className="detail-text">{text}</div>;
 }
 
+function sourceBlocks(detail) {
+  if (detail.source === 'gupy') {
+    return [
+      ['Descrição', renderHtmlBlock(detail.description_html)],
+      ['Responsabilidades', renderHtmlBlock(detail.responsibilities_html)],
+      ['Pré-requisitos', renderHtmlBlock(detail.prerequisites_html)],
+    ];
+  }
+  if (detail.source === 'inhire') {
+    return [
+      ['Descrição', renderHtmlBlock(detail.description_html)],
+      ['Sobre a empresa', renderHtmlBlock(detail.about_html)],
+    ];
+  }
+  if (detail.source === 'linkedin') {
+    // The public guest endpoint returns rich HTML; the older Selenium
+    // sidecar stored plain text. Sniff the first non-whitespace char to
+    // pick the right renderer so legacy rows still display correctly.
+    const desc = detail.description || '';
+    const body = desc.trimStart().startsWith('<')
+      ? renderHtmlBlock(desc)
+      : renderTextBlock(desc);
+    return [['Descrição', body]];
+  }
+  return [];
+}
+
 function SourceDetail({ detail }) {
   if (!detail) return null;
-  const fields = [];
-  const blocks = [];
-
-  if (detail.source === 'gupy') {
-    if (detail.published_at) fields.push(['Publicado em', detail.published_at]);
-    if (detail.country) fields.push(['País', detail.country]);
-    blocks.push(['Descrição', renderHtmlBlock(detail.description_html)]);
-    blocks.push(['Responsabilidades', renderHtmlBlock(detail.responsibilities_html)]);
-    blocks.push(['Pré-requisitos', renderHtmlBlock(detail.prerequisites_html)]);
-  } else if (detail.source === 'inhire') {
-    if (detail.contract_type) fields.push(['Contrato', detail.contract_type]);
-    if (detail.location) fields.push(['Localização', detail.location]);
-    if (detail.location_complement) fields.push(['Complemento', detail.location_complement]);
-    if (detail.published_at) fields.push(['Publicado em', detail.published_at]);
-    blocks.push(['Descrição', renderHtmlBlock(detail.description_html)]);
-    blocks.push(['Sobre a empresa', renderHtmlBlock(detail.about_html)]);
-  } else if (detail.source === 'linkedin') {
-    if (detail.seniority) fields.push(['Nível', detail.seniority]);
-    if (detail.employment_type) fields.push(['Tipo', detail.employment_type]);
-    if (detail.job_function) fields.push(['Função', detail.job_function]);
-    if (detail.industries) fields.push(['Indústrias', detail.industries]);
-    if (detail.posted_at) {
-      const d = new Date(detail.posted_at);
-      fields.push(['Publicado em', Number.isNaN(d.getTime())
-        ? detail.posted_at
-        : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })]);
-    }
-    if (detail.num_applicants !== null && detail.num_applicants !== undefined && detail.num_applicants !== '') {
-      fields.push(['Candidatos', String(detail.num_applicants)]);
-    }
-    const desc = detail.description || '';
-    blocks.push([
-      'Descrição',
-      desc.trimStart().startsWith('<') ? renderHtmlBlock(desc) : renderTextBlock(desc),
-    ]);
-  }
+  const facts = extractCommonFacts(detail);
+  const blocks = sourceBlocks(detail).filter(([, body]) => body !== null);
+  const rawJson = pickRawJson(detail);
+  const syncedAgo = formatRelative(detail.fetched_at);
 
   return (
     <>
-      {fields.length > 0 && (
+      {facts.length > 0 && (
         <div className="detail-grid">
-          {fields.map(([label, value]) => (
+          {facts.map(({ label, value }) => (
             <div key={label} className="info-item">
               <strong>{label}:</strong>
               <span>{value}</span>
@@ -77,19 +73,19 @@ function SourceDetail({ detail }) {
           ))}
         </div>
       )}
-      {blocks.filter(([, body]) => body !== null).map(([label, body]) => (
+      {blocks.map(([label, body]) => (
         <section key={label} className="detail-section">
           <h4>{label}</h4>
           {body}
         </section>
       ))}
-      {detail.fetched_at && (
-        <p className="detail-meta">Sincronizado em {detail.fetched_at}</p>
+      {syncedAgo && (
+        <p className="detail-meta">Sincronizado {syncedAgo}</p>
       )}
-      {pickRawJson(detail) && (
+      {rawJson && (
         <details className="json-details">
           <summary>JSON completo da fonte</summary>
-          <JsonTree raw={pickRawJson(detail)} />
+          <JsonTree raw={rawJson} />
         </details>
       )}
     </>
@@ -122,6 +118,9 @@ function JobDetails({ job, detail, loading, error, company, onSync, onClose }) {
           <div>
             <h2>{job.job_title}</h2>
             <h3>{job.company_name}</h3>
+            {job.job_department && (
+              <p className="job-department">{job.job_department}</p>
+            )}
           </div>
         </div>
 

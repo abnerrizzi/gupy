@@ -324,6 +324,8 @@ body {
   font-size: 0.75rem;
   color: #94a3b8;
   margin-top: 1rem;
+  text-align: right;
+  font-style: italic;
 }
 
 .sync-button {
@@ -536,6 +538,15 @@ body {
   font-size: 1rem;
   color: var(--text-muted);
   font-weight: 500;
+}
+
+.job-department {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary);
 }
 
 .job-details-body {
