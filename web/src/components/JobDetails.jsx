@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import DOMPurify from 'dompurify';
 import JsonTree from './JsonTree';
@@ -86,6 +86,13 @@ SourceDetail.propTypes = {
 };
 
 function JobDetails({ job, detail, loading, error, company, onSync, onClose }) {
+  useEffect(() => {
+    if (!job) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [job, onClose]);
+
   if (!job) return null;
 
   return (
