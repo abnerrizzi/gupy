@@ -3,6 +3,7 @@ import os
 import sqlite3
 import json
 import logging
+import time
 from flask import Flask, request, jsonify, g
 
 from fetchers import FETCHERS, FetchError
@@ -81,11 +82,17 @@ def upsert_detail(db, source: str, job_id: str, fields: dict) -> dict:
     cols = ['id'] + list(fields.keys()) + ['fetched_at']
     placeholders = ','.join(['?'] * len(cols))
     values = [job_id] + list(fields.values()) + [fetched_at]
+    total_bytes = sum(len(v) if isinstance(v, (str, bytes)) else 0 for v in values)
+    logger.info('[%s] upsert_detail: table=%s cols=%d total_bytes=%d fetched_at=%s',
+                job_id, table, len(cols), total_bytes, fetched_at)
+    t0 = time.monotonic()
     db.execute(
         f"INSERT OR REPLACE INTO {table} ({','.join(cols)}) VALUES ({placeholders})",
         values,
     )
     db.commit()
+    logger.info('[%s] upsert_detail: INSERT OR REPLACE committed in %.3fs',
+                job_id, time.monotonic() - t0)
     cursor = db.cursor()
     cursor.execute(f"SELECT * FROM {table} WHERE id = ?", (job_id,))
     row = cursor.fetchone()
@@ -358,43 +365,77 @@ def _lookup_job_context(cursor, job_id):
 
 @app.route('/api/jobs/<job_id>/detail/fetch', methods=['POST'])
 def fetch_job_detail(job_id):
+    req_start = time.monotonic()
+    logger.info('[%s] ==> POST /api/jobs/%s/detail/fetch (remote=%s ua=%r)',
+                job_id, job_id, request.remote_addr,
+                request.headers.get('User-Agent', '-'))
     db = get_db()
     cursor = db.cursor()
+
+    logger.info('[%s] phase 1: resolving job context from jobs_all', job_id)
     ctx = _lookup_job_context(cursor, job_id)
     if not ctx:
+        logger.warning('[%s] <== 404 job not found in jobs_all', job_id)
         return jsonify({'error': 'Job not found'}), 404
     source = ctx['source']
+    logger.info('[%s] phase 1: resolved source=%s company_id=%s career_page_url=%s title=%r',
+                job_id, source, ctx.get('company_id'),
+                ctx.get('career_page_url'), ctx.get('title'))
+
     fetcher = FETCHERS.get(source)
     if not fetcher:
+        logger.warning('[%s] <== 400 no fetcher for source=%r', job_id, source)
         return jsonify({'error': f'Unknown source: {source}'}), 400
+
+    logger.info('[%s] phase 2: dispatching to fetcher=%s.%s',
+                job_id, fetcher.__module__, fetcher.__name__)
+    t_fetch = time.monotonic()
     try:
         fields = fetcher(job_id=job_id, context=ctx)
     except NotImplementedError as exc:
+        logger.warning('[%s] <== 501 fetcher not implemented: %s', job_id, exc)
         return jsonify({'error': str(exc), 'source': source}), 501
     except FetchError as exc:
-        logger.error("detail fetch failed for %s/%s: %s", source, job_id, exc,
-                     exc_info=True)
+        logger.error('[%s] <== 502 FetchError after %.2fs: %s',
+                     job_id, time.monotonic() - t_fetch, exc, exc_info=True)
         return jsonify({'error': str(exc), 'source': source}), 502
+    logger.info('[%s] phase 2: fetcher returned %d fields in %.2fs — sizes: %s',
+                job_id, len(fields), time.monotonic() - t_fetch,
+                {k: (len(v) if isinstance(v, (str, bytes)) else v) for k, v in fields.items()})
+
+    logger.info('[%s] phase 3: upserting into %s', job_id, DETAIL_TABLES[source])
     detail = upsert_detail(db, source, job_id, fields)
+
+    elapsed = time.monotonic() - req_start
+    logger.info('[%s] <== 200 POST complete in %.2fs', job_id, elapsed)
     return jsonify(detail)
 
 
 @app.route('/api/jobs/<job_id>/detail')
 def get_job_detail(job_id):
+    req_start = time.monotonic()
+    logger.info('[%s] ==> GET /api/jobs/%s/detail', job_id, job_id)
     db = get_db()
     cursor = db.cursor()
     source = _lookup_source(cursor, job_id)
     if not source:
+        logger.info('[%s] <== 404 job not found (%.3fs)', job_id, time.monotonic() - req_start)
         return jsonify({'error': 'Job not found'}), 404
     table = DETAIL_TABLES.get(source)
     if not table:
+        logger.warning('[%s] <== 400 unknown source=%r', job_id, source)
         return jsonify({'error': f'Unknown source: {source}'}), 400
     cursor.execute(f"SELECT * FROM {table} WHERE id = ?", (job_id,))
     row = cursor.fetchone()
     if not row:
+        logger.info('[%s] <== 404 %s.%s not fetched yet (%.3fs)',
+                    job_id, table, job_id, time.monotonic() - req_start)
         return jsonify({'error': 'Detail not fetched yet', 'source': source}), 404
     detail = dict(row)
     detail['source'] = source
+    sizes = {k: len(v) for k, v in detail.items() if isinstance(v, str)}
+    logger.info('[%s] <== 200 %s row returned in %.3fs — sizes: %s',
+                job_id, table, time.monotonic() - req_start, sizes)
     return jsonify(detail)
 
 

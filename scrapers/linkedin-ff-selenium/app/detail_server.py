@@ -44,8 +44,11 @@ def _ensure_schema() -> None:
 
 def _create_scraper() -> LinkedInSeleniumScraper:
     logger.info('Bootstrapping Selenium session at %s', config.SELENIUM_URL)
+    t0 = time.monotonic()
     session = BrowserSession(config.SELENIUM_URL, config.BROWSER_TIMEOUT)
-    session.create_driver()
+    driver = session.create_driver()
+    logger.info('Selenium driver ready in %.1fs — session_id=%s',
+                time.monotonic() - t0, driver.session_id)
     return LinkedInSeleniumScraper(session)
 
 
@@ -94,16 +97,25 @@ def _scrape_with_retry(job_id: str, job_url: str) -> dict:
     scraper = _get_scraper()
 
     def _attempt(label: str) -> dict:
-        logger.info('[%s] step 1: parse via LinkedInSeleniumScraper.scrape_detail_page (%s)',
-                    job_id, label)
+        logger.info('[%s] step 1: parse via LinkedInSeleniumScraper.scrape_detail_page '
+                    '(%s, session_id=%s)',
+                    job_id, label, getattr(scraper.driver, 'session_id', '?'))
         t0 = time.monotonic()
         parsed = scraper.scrape_detail_page(job_url)
-        logger.info('[%s] step 2: parse returned desc_len=%d seniority=%r employment_type=%r (%.1fs)',
+        try:
+            current_url = scraper.driver.current_url
+            page_title = scraper.driver.title
+        except WebDriverException:
+            current_url = page_title = '<unreachable>'
+        logger.info('[%s] step 2: parse returned desc_len=%d seniority=%r '
+                    'employment_type=%r (%.1fs) — title=%r current_url=%r',
                     job_id,
                     len(parsed.get('description', '') or ''),
                     parsed.get('seniority'),
                     parsed.get('employment_type'),
-                    time.monotonic() - t0)
+                    time.monotonic() - t0,
+                    page_title,
+                    current_url)
         if parsed.get('description'):
             logger.info('[%s] step 3: capturing rendered detail html', job_id)
             t1 = time.monotonic()
