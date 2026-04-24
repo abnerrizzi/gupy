@@ -269,12 +269,14 @@ def get_jobs():
     limit = safe_int(request.args.get('limit'), 100, min_val=1, max_val=1000)
     offset = safe_int(request.args.get('offset'), 0, min_val=0)
 
-    # For count, we reuse the same filter logic but must adjust column names if necessary
-    # (In this case jobs_all has all columns, so j. prefix from build_filters is fine if we alias)
+    # Filtered count drives pagination; grand_total powers the "X of Y"
+    # header indicator so the SPA can show how much is hidden by filters.
     count_query = f"SELECT COUNT(*) FROM jobs_all j WHERE 1=1 {where_str}"
-    
     cursor.execute(count_query, params)
     total = cursor.fetchone()[0]
+
+    cursor.execute('SELECT COUNT(*) FROM jobs_all')
+    grand_total = cursor.fetchone()[0]
 
     query += f" {order_str} LIMIT ? OFFSET ?"
     query_params = params + [limit, offset]
@@ -297,6 +299,7 @@ def get_jobs():
     return jsonify({
         'jobs': jobs,
         'total': total,
+        'grand_total': grand_total,
         'limit': limit,
         'offset': offset
     })
