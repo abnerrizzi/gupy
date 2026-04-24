@@ -47,7 +47,13 @@ function SourceDetail({ detail }) {
   } else if (detail.source === 'linkedin') {
     if (detail.seniority) fields.push(['Nível', detail.seniority]);
     if (detail.employment_type) fields.push(['Tipo', detail.employment_type]);
-    blocks.push(['Descrição', renderTextBlock(detail.description)]);
+    if (detail.job_function) fields.push(['Função', detail.job_function]);
+    if (detail.industries) fields.push(['Indústrias', detail.industries]);
+    const desc = detail.description || '';
+    blocks.push([
+      'Descrição',
+      desc.trimStart().startsWith('<') ? renderHtmlBlock(desc) : renderTextBlock(desc),
+    ]);
   }
 
   return (
