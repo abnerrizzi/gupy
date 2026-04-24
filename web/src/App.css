@@ -355,7 +355,7 @@ body {
 .json-tree {
   padding: 0.5rem 0.75rem 0.75rem;
   max-height: 420px;
-  overflow: auto;
+  overflow: scroll; /* force both scrollbars visible */
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.78rem;
   line-height: 1.45;
@@ -363,9 +363,7 @@ body {
 }
 
 .json-row {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap; /* long lines extend horizontally → container's hscroll handles them */
 }
 
 .json-toggle {

@@ -232,7 +232,10 @@ def get_job_url(job, company):
     if source == 'inhire':
         tenant = job.get('company_id')
         return f"https://{tenant}.inhire.app/vagas/{job_id}/description"
-    
+
+    if source == 'linkedin':
+        return f"https://www.linkedin.com/jobs/view/{job_id}"
+
     return ""
 
 @app.route('/api/jobs')
