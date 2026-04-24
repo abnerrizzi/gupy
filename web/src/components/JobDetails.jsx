@@ -47,7 +47,22 @@ function SourceDetail({ detail }) {
   } else if (detail.source === 'linkedin') {
     if (detail.seniority) fields.push(['Nível', detail.seniority]);
     if (detail.employment_type) fields.push(['Tipo', detail.employment_type]);
-    blocks.push(['Descrição', renderTextBlock(detail.description)]);
+    if (detail.job_function) fields.push(['Função', detail.job_function]);
+    if (detail.industries) fields.push(['Indústrias', detail.industries]);
+    if (detail.posted_at) {
+      const d = new Date(detail.posted_at);
+      fields.push(['Publicado em', Number.isNaN(d.getTime())
+        ? detail.posted_at
+        : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })]);
+    }
+    if (detail.num_applicants !== null && detail.num_applicants !== undefined && detail.num_applicants !== '') {
+      fields.push(['Candidatos', String(detail.num_applicants)]);
+    }
+    const desc = detail.description || '';
+    blocks.push([
+      'Descrição',
+      desc.trimStart().startsWith('<') ? renderHtmlBlock(desc) : renderTextBlock(desc),
+    ]);
   }
 
   return (
