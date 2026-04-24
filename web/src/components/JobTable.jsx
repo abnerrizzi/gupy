@@ -35,6 +35,7 @@ function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrd
             <th onClick={() => onSort('source')} style={{ cursor: 'pointer' }}>
               Fonte{renderSortIcon('source')}
             </th>
+            <th aria-label="Detail"></th>
           </tr>
         </thead>
         <tbody>
@@ -57,6 +58,15 @@ function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrd
                 <span className={`tag tag-source-${(job.source || 'gupy').toLowerCase()}`}>
                   {(job.source || 'Gupy').toUpperCase()}
                 </span>
+              </td>
+              <td>
+                <button
+                  type="button"
+                  className="detail-button"
+                  onClick={(e) => { e.stopPropagation(); onJobClick(job); }}
+                >
+                  Detalhe
+                </button>
               </td>
             </tr>
           ))}

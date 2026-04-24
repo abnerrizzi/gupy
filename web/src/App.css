@@ -234,6 +234,187 @@ body {
   color: #64748b;
 }
 
+/* Detail button (per-row) */
+.detail-button {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: var(--primary);
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.detail-button:hover {
+  background-color: #1d4ed8;
+}
+
+/* Detail section inside the job modal */
+.detail-section-wrapper {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  padding-top: 1.5rem;
+}
+
+.detail-section {
+  margin-bottom: 1.5rem;
+}
+
+.detail-section h4 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+}
+
+.detail-html,
+.detail-text {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #334155;
+  word-wrap: break-word;
+}
+
+.detail-text {
+  white-space: pre-wrap;
+}
+
+.detail-html img,
+.detail-html video {
+  max-width: 100%;
+  height: auto;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.9rem 1.25rem;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.5rem;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+}
+
+.detail-grid .info-item strong {
+  font-size: 0.7rem;
+}
+
+.detail-grid .info-item span {
+  font-size: 0.85rem;
+}
+
+.detail-loading,
+.detail-error {
+  font-size: 0.9rem;
+  color: #475569;
+  margin: 0.75rem 0;
+}
+
+.detail-error {
+  color: #b91c1c;
+}
+
+.detail-meta {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 1rem;
+  text-align: right;
+  font-style: italic;
+}
+
+.sync-button {
+  display: inline-block;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: var(--primary);
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.sync-button:hover {
+  background-color: #1d4ed8;
+}
+
+/* Collapsible raw-JSON explorer */
+.json-details {
+  margin-top: 1.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+
+.json-details > summary {
+  cursor: pointer;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+  user-select: none;
+}
+
+.json-details[open] > summary {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.json-tree {
+  padding: 0.5rem 0.75rem 0.75rem;
+  max-height: 420px;
+  overflow: scroll; /* force both scrollbars visible */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #0f172a;
+}
+
+.json-row {
+  white-space: nowrap; /* long lines extend horizontally → container's hscroll handles them */
+}
+
+.json-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.json-toggle:hover {
+  background-color: #e2e8f0;
+}
+
+.json-caret {
+  display: inline-block;
+  width: 1em;
+  color: #64748b;
+  margin-right: 0.1em;
+}
+
+.json-key {
+  color: #7c3aed;
+  margin-right: 0.35em;
+}
+
+.json-string { color: #059669; }
+.json-number { color: #d97706; }
+.json-bool { color: #2563eb; }
+.json-null { color: #94a3b8; font-style: italic; }
+.json-summary { color: #64748b; font-style: italic; }
+
+.json-parse-error {
+  padding: 0.75rem;
+  color: #b91c1c;
+  background: #fee2e2;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+}
+
 /* Pagination */
 .pagination {
   display: flex;
@@ -359,15 +540,36 @@ body {
   font-weight: 500;
 }
 
+.job-department {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary);
+}
+
 .job-details-body {
   padding: 2rem 2.5rem 2.5rem;
 }
 
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.9rem 1.25rem;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.75rem;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+}
+
+.info-grid .info-item strong {
+  font-size: 0.7rem;
+}
+
+.info-grid .info-item span {
+  font-size: 0.85rem;
 }
 
 .info-item {

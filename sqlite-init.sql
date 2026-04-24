@@ -89,6 +89,49 @@ CREATE TABLE IF NOT EXISTS companies_linkedin_latest (
     source TEXT
 );
 
+-- 1b. Per-source DETAIL tables (populated on demand by the API, one row per job
+-- whose description has been fetched). Schema is source-specific because each
+-- source ships a different payload shape; using one unified table would be
+-- either sparse or stringly-typed.
+CREATE TABLE IF NOT EXISTS jobs_gupy_detail (
+    id TEXT PRIMARY KEY,
+    description_html TEXT,
+    responsibilities_html TEXT,
+    prerequisites_html TEXT,
+    workplace_type TEXT,
+    job_type TEXT,
+    country TEXT,
+    published_at TEXT,
+    next_data TEXT,
+    fetched_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS jobs_inhire_detail (
+    id TEXT PRIMARY KEY,
+    description_html TEXT,
+    about_html TEXT,
+    contract_type TEXT,
+    workplace_type TEXT,
+    location TEXT,
+    location_complement TEXT,
+    published_at TEXT,
+    raw_payload TEXT,
+    fetched_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS jobs_linkedin_detail (
+    id TEXT PRIMARY KEY,
+    description TEXT,
+    seniority TEXT,
+    employment_type TEXT,
+    job_function TEXT,
+    industries TEXT,
+    posted_at TEXT,
+    num_applicants INTEGER,
+    detail_html TEXT,
+    fetched_at TEXT NOT NULL
+);
+
 -- 2. HANDLE TEMPORARY/TIMESTAMPED TABLES
 -- Created for all three sources so the migration step below is a simple
 -- per-source INSERT ... SELECT. If ${ts} is 0, these are dummy init tables.
@@ -264,11 +307,24 @@ CREATE VIEW job_details AS
         j.workplace_type AS workplace_type,
         j.workplace_city,
         j.workplace_state,
-        j.source
+        j.source,
+        CASE j.source
+            WHEN 'gupy'     THEN CASE WHEN gd.id IS NOT NULL THEN 1 ELSE 0 END
+            WHEN 'inhire'   THEN CASE WHEN ih.id IS NOT NULL THEN 1 ELSE 0 END
+            WHEN 'linkedin' THEN CASE WHEN ld.id IS NOT NULL THEN 1 ELSE 0 END
+            ELSE 0
+        END AS has_detail,
+        COALESCE(gd.fetched_at, ih.fetched_at, ld.fetched_at) AS detail_fetched_at
     FROM
         jobs_all j
     LEFT JOIN
-        companies_all c ON j.company_id = c.id;
+        companies_all c ON j.company_id = c.id
+    LEFT JOIN
+        jobs_gupy_detail gd ON j.source = 'gupy' AND gd.id = j.id
+    LEFT JOIN
+        jobs_inhire_detail ih ON j.source = 'inhire' AND ih.id = j.id
+    LEFT JOIN
+        jobs_linkedin_detail ld ON j.source = 'linkedin' AND ld.id = j.id;
 
 COMMIT;
 

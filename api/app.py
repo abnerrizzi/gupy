@@ -2,11 +2,81 @@
 import os
 import sqlite3
 import json
+import logging
+import time
 from flask import Flask, request, jsonify, g
+
+from fetchers import FETCHERS, FetchError
 
 app = Flask(__name__)
 
+logging.basicConfig(
+    level=os.environ.get('LOG_LEVEL', 'INFO'),
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+)
+logger = logging.getLogger(__name__)
+
 DATABASE = os.environ.get('JOBHUBMINE_DATABASE', '/app/out/jobhubmine.db')
+
+DETAIL_TABLES = {
+    'gupy': 'jobs_gupy_detail',
+    'inhire': 'jobs_inhire_detail',
+    'linkedin': 'jobs_linkedin_detail',
+}
+
+
+def _enable_wal(db):
+    # Enable WAL once per DB file so the API and a concurrent scraper run
+    # don't block each other. Idempotent — safe on every open.
+    db.execute('PRAGMA journal_mode=WAL')
+
+
+_DETAIL_MIGRATIONS = {
+    'jobs_gupy_detail': [('next_data', 'TEXT')],
+    'jobs_inhire_detail': [('raw_payload', 'TEXT')],
+    'jobs_linkedin_detail': [
+        ('detail_html', 'TEXT'),
+        ('job_function', 'TEXT'),
+        ('industries', 'TEXT'),
+        ('posted_at', 'TEXT'),
+        ('num_applicants', 'INTEGER'),
+    ],
+}
+
+
+def _ensure_detail_schema():
+    """Idempotent per-worker migration: add detail columns that were
+    introduced after the table first landed. CREATE TABLE IF NOT EXISTS
+    can't alter existing tables, so we check PRAGMA + ALTER when missing."""
+    try:
+        con = sqlite3.connect(DATABASE)
+    except sqlite3.OperationalError:
+        return
+    try:
+        for table, cols_required in _DETAIL_MIGRATIONS.items():
+            info = {r[1]: (r[2] or '').upper()
+                    for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
+            if not info:
+                continue
+            for col, coltype in cols_required:
+                want = coltype.upper()
+                if col not in info:
+                    logger.info('schema migration: adding %s.%s (%s)', table, col, want)
+                    con.execute(f'ALTER TABLE {table} ADD COLUMN {col} {want}')
+                elif info[col] != want:
+                    # Earlier migration added this column with the wrong affinity
+                    # (e.g. INTEGER stored as TEXT). Drop + re-add to restore the
+                    # right type. SQLite keeps this a fast O(1) metadata change.
+                    logger.info('schema migration: retyping %s.%s from %s to %s',
+                                table, col, info[col], want)
+                    con.execute(f'ALTER TABLE {table} DROP COLUMN {col}')
+                    con.execute(f'ALTER TABLE {table} ADD COLUMN {col} {want}')
+        con.commit()
+    finally:
+        con.close()
+
+
+_ensure_detail_schema()
 
 
 def get_db():
@@ -14,7 +84,37 @@ def get_db():
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
         db.row_factory = sqlite3.Row
+        _enable_wal(db)
     return db
+
+
+def upsert_detail(db, source: str, job_id: str, fields: dict) -> dict:
+    """Insert-or-replace a detail row. `fields` keys must match the columns of
+    the target table (minus `id` and `fetched_at`, which are set here).
+    Returns the persisted row as a dict (source-agnostic caller contract)."""
+    table = DETAIL_TABLES[source]
+    from datetime import datetime, timezone
+    fetched_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
+    cols = ['id'] + list(fields.keys()) + ['fetched_at']
+    placeholders = ','.join(['?'] * len(cols))
+    values = [job_id] + list(fields.values()) + [fetched_at]
+    total_bytes = sum(len(v) if isinstance(v, (str, bytes)) else 0 for v in values)
+    logger.info('[%s] upsert_detail: table=%s cols=%d total_bytes=%d fetched_at=%s',
+                job_id, table, len(cols), total_bytes, fetched_at)
+    t0 = time.monotonic()
+    db.execute(
+        f"INSERT OR REPLACE INTO {table} ({','.join(cols)}) VALUES ({placeholders})",
+        values,
+    )
+    db.commit()
+    logger.info('[%s] upsert_detail: INSERT OR REPLACE committed in %.3fs',
+                job_id, time.monotonic() - t0)
+    cursor = db.cursor()
+    cursor.execute(f"SELECT * FROM {table} WHERE id = ?", (job_id,))
+    row = cursor.fetchone()
+    result = dict(row)
+    result['source'] = source
+    return result
 
 
 @app.teardown_appcontext
@@ -155,7 +255,10 @@ def get_job_url(job, company):
     if source == 'inhire':
         tenant = job.get('company_id')
         return f"https://{tenant}.inhire.app/vagas/{job_id}/description"
-    
+
+    if source == 'linkedin':
+        return f"https://www.linkedin.com/jobs/view/{job_id}"
+
     return ""
 
 @app.route('/api/jobs')
@@ -179,12 +282,14 @@ def get_jobs():
     limit = safe_int(request.args.get('limit'), 100, min_val=1, max_val=1000)
     offset = safe_int(request.args.get('offset'), 0, min_val=0)
 
-    # For count, we reuse the same filter logic but must adjust column names if necessary
-    # (In this case jobs_all has all columns, so j. prefix from build_filters is fine if we alias)
+    # Filtered count drives pagination; grand_total powers the "X of Y"
+    # header indicator so the SPA can show how much is hidden by filters.
     count_query = f"SELECT COUNT(*) FROM jobs_all j WHERE 1=1 {where_str}"
-    
     cursor.execute(count_query, params)
     total = cursor.fetchone()[0]
+
+    cursor.execute('SELECT COUNT(*) FROM jobs_all')
+    grand_total = cursor.fetchone()[0]
 
     query += f" {order_str} LIMIT ? OFFSET ?"
     query_params = params + [limit, offset]
@@ -207,6 +312,7 @@ def get_jobs():
     return jsonify({
         'jobs': jobs,
         'total': total,
+        'grand_total': grand_total,
         'limit': limit,
         'offset': offset
     })
@@ -252,6 +358,104 @@ def get_filters():
         'job_types': job_types,
         'sources': sources
     })
+
+
+def _lookup_source(cursor, job_id):
+    cursor.execute("SELECT source FROM jobs_all WHERE id = ? LIMIT 1", (job_id,))
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def _lookup_job_context(cursor, job_id):
+    cursor.execute(
+        """
+        SELECT j.source, j.company_id, j.title, c.name AS company_name,
+               c.career_page_url
+        FROM jobs_all j
+        LEFT JOIN companies_all c ON j.company_id = c.id
+        WHERE j.id = ?
+        LIMIT 1
+        """,
+        (job_id,),
+    )
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+@app.route('/api/jobs/<job_id>/detail/fetch', methods=['POST'])
+def fetch_job_detail(job_id):
+    req_start = time.monotonic()
+    logger.info('[%s] ==> POST /api/jobs/%s/detail/fetch (remote=%s ua=%r)',
+                job_id, job_id, request.remote_addr,
+                request.headers.get('User-Agent', '-'))
+    db = get_db()
+    cursor = db.cursor()
+
+    logger.info('[%s] phase 1: resolving job context from jobs_all', job_id)
+    ctx = _lookup_job_context(cursor, job_id)
+    if not ctx:
+        logger.warning('[%s] <== 404 job not found in jobs_all', job_id)
+        return jsonify({'error': 'Job not found'}), 404
+    source = ctx['source']
+    logger.info('[%s] phase 1: resolved source=%s company_id=%s career_page_url=%s title=%r',
+                job_id, source, ctx.get('company_id'),
+                ctx.get('career_page_url'), ctx.get('title'))
+
+    fetcher = FETCHERS.get(source)
+    if not fetcher:
+        logger.warning('[%s] <== 400 no fetcher for source=%r', job_id, source)
+        return jsonify({'error': f'Unknown source: {source}'}), 400
+
+    logger.info('[%s] phase 2: dispatching to fetcher=%s.%s',
+                job_id, fetcher.__module__, fetcher.__name__)
+    t_fetch = time.monotonic()
+    try:
+        fields = fetcher(job_id=job_id, context=ctx)
+    except NotImplementedError as exc:
+        logger.warning('[%s] <== 501 fetcher not implemented: %s', job_id, exc)
+        return jsonify({'error': str(exc), 'source': source}), 501
+    except FetchError as exc:
+        logger.error('[%s] <== 502 FetchError after %.2fs: %s',
+                     job_id, time.monotonic() - t_fetch, exc, exc_info=True)
+        return jsonify({'error': str(exc), 'source': source}), 502
+    logger.info('[%s] phase 2: fetcher returned %d fields in %.2fs — sizes: %s',
+                job_id, len(fields), time.monotonic() - t_fetch,
+                {k: (len(v) if isinstance(v, (str, bytes)) else v) for k, v in fields.items()})
+
+    logger.info('[%s] phase 3: upserting into %s', job_id, DETAIL_TABLES[source])
+    detail = upsert_detail(db, source, job_id, fields)
+
+    elapsed = time.monotonic() - req_start
+    logger.info('[%s] <== 200 POST complete in %.2fs', job_id, elapsed)
+    return jsonify(detail)
+
+
+@app.route('/api/jobs/<job_id>/detail')
+def get_job_detail(job_id):
+    req_start = time.monotonic()
+    logger.info('[%s] ==> GET /api/jobs/%s/detail', job_id, job_id)
+    db = get_db()
+    cursor = db.cursor()
+    source = _lookup_source(cursor, job_id)
+    if not source:
+        logger.info('[%s] <== 404 job not found (%.3fs)', job_id, time.monotonic() - req_start)
+        return jsonify({'error': 'Job not found'}), 404
+    table = DETAIL_TABLES.get(source)
+    if not table:
+        logger.warning('[%s] <== 400 unknown source=%r', job_id, source)
+        return jsonify({'error': f'Unknown source: {source}'}), 400
+    cursor.execute(f"SELECT * FROM {table} WHERE id = ?", (job_id,))
+    row = cursor.fetchone()
+    if not row:
+        logger.info('[%s] <== 404 %s.%s not fetched yet (%.3fs)',
+                    job_id, table, job_id, time.monotonic() - req_start)
+        return jsonify({'error': 'Detail not fetched yet', 'source': source}), 404
+    detail = dict(row)
+    detail['source'] = source
+    sizes = {k: len(v) for k, v in detail.items() if isinstance(v, str)}
+    logger.info('[%s] <== 200 %s row returned in %.3fs — sizes: %s',
+                job_id, table, time.monotonic() - req_start, sizes)
+    return jsonify(detail)
 
 
 @app.route('/api/jobs/<job_id>')
