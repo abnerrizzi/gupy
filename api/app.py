@@ -32,9 +32,15 @@ def _enable_wal(db):
 
 
 _DETAIL_MIGRATIONS = {
-    'jobs_gupy_detail': ['next_data'],
-    'jobs_inhire_detail': ['raw_payload'],
-    'jobs_linkedin_detail': ['detail_html'],
+    'jobs_gupy_detail': [('next_data', 'TEXT')],
+    'jobs_inhire_detail': [('raw_payload', 'TEXT')],
+    'jobs_linkedin_detail': [
+        ('detail_html', 'TEXT'),
+        ('job_function', 'TEXT'),
+        ('industries', 'TEXT'),
+        ('posted_at', 'TEXT'),
+        ('num_applicants', 'INTEGER'),
+    ],
 }
 
 
@@ -48,13 +54,23 @@ def _ensure_detail_schema():
         return
     try:
         for table, cols_required in _DETAIL_MIGRATIONS.items():
-            existing = {r[1] for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
-            if not existing:
+            info = {r[1]: (r[2] or '').upper()
+                    for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
+            if not info:
                 continue
-            for col in cols_required:
-                if col not in existing:
-                    logger.info('schema migration: adding %s.%s', table, col)
-                    con.execute(f'ALTER TABLE {table} ADD COLUMN {col} TEXT')
+            for col, coltype in cols_required:
+                want = coltype.upper()
+                if col not in info:
+                    logger.info('schema migration: adding %s.%s (%s)', table, col, want)
+                    con.execute(f'ALTER TABLE {table} ADD COLUMN {col} {want}')
+                elif info[col] != want:
+                    # Earlier migration added this column with the wrong affinity
+                    # (e.g. INTEGER stored as TEXT). Drop + re-add to restore the
+                    # right type. SQLite keeps this a fast O(1) metadata change.
+                    logger.info('schema migration: retyping %s.%s from %s to %s',
+                                table, col, info[col], want)
+                    con.execute(f'ALTER TABLE {table} DROP COLUMN {col}')
+                    con.execute(f'ALTER TABLE {table} ADD COLUMN {col} {want}')
         con.commit()
     finally:
         con.close()
@@ -266,12 +282,14 @@ def get_jobs():
     limit = safe_int(request.args.get('limit'), 100, min_val=1, max_val=1000)
     offset = safe_int(request.args.get('offset'), 0, min_val=0)
 
-    # For count, we reuse the same filter logic but must adjust column names if necessary
-    # (In this case jobs_all has all columns, so j. prefix from build_filters is fine if we alias)
+    # Filtered count drives pagination; grand_total powers the "X of Y"
+    # header indicator so the SPA can show how much is hidden by filters.
     count_query = f"SELECT COUNT(*) FROM jobs_all j WHERE 1=1 {where_str}"
-    
     cursor.execute(count_query, params)
     total = cursor.fetchone()[0]
+
+    cursor.execute('SELECT COUNT(*) FROM jobs_all')
+    grand_total = cursor.fetchone()[0]
 
     query += f" {order_str} LIMIT ? OFFSET ?"
     query_params = params + [limit, offset]
@@ -294,6 +312,7 @@ def get_jobs():
     return jsonify({
         'jobs': jobs,
         'total': total,
+        'grand_total': grand_total,
         'limit': limit,
         'offset': offset
     })

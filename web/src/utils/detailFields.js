@@ -99,8 +99,14 @@ export function extractCommonFacts(detail) {
     push('Localização', detail.location);
     push('Complemento', detail.location_complement);
   } else if (detail.source === 'linkedin') {
+    push('Publicado em', formatDate(detail.posted_at));
     push('Nível', formatSeniority(detail.seniority));
     push('Tipo de contratação', formatJobType(detail.employment_type));
+    push('Função', detail.job_function);
+    push('Indústrias', detail.industries);
+    if (typeof detail.num_applicants === 'number') {
+      push('Candidatos', detail.num_applicants.toLocaleString('pt-BR'));
+    }
   }
 
   return facts;

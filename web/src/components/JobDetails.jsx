@@ -42,7 +42,14 @@ function sourceBlocks(detail) {
     ];
   }
   if (detail.source === 'linkedin') {
-    return [['Descrição', renderTextBlock(detail.description)]];
+    // The public guest endpoint returns rich HTML; the older Selenium
+    // sidecar stored plain text. Sniff the first non-whitespace char to
+    // pick the right renderer so legacy rows still display correctly.
+    const desc = detail.description || '';
+    const body = desc.trimStart().startsWith('<')
+      ? renderHtmlBlock(desc)
+      : renderTextBlock(desc);
+    return [['Descrição', body]];
   }
   return [];
 }

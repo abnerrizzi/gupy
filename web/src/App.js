@@ -18,6 +18,7 @@ function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
   const [total, setTotal] = useState(0);
+  const [grandTotal, setGrandTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [sortKey, setSortKey] = useState('job_title');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -97,6 +98,7 @@ function App() {
       const data = await res.json();
       setJobs(data.jobs);
       setTotal(data.total);
+      if (typeof data.grand_total === 'number') setGrandTotal(data.grand_total);
     } catch (err) {
       if (err.name === 'AbortError') return;
       console.error('Failed to fetch jobs:', err);
@@ -236,7 +238,12 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>Job Search</h1>
-        <p>{total} vagas encontradas</p>
+        <p>
+          {total.toLocaleString('pt-BR')} vagas encontradas
+          {grandTotal > 0 && grandTotal !== total && (
+            <> de {grandTotal.toLocaleString('pt-BR')} totais</>
+          )}
+        </p>
       </header>
 
       <main className="App-main">
