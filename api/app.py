@@ -32,11 +32,14 @@ def _enable_wal(db):
 
 
 _DETAIL_MIGRATIONS = {
-    'jobs_gupy_detail': ['next_data'],
-    'jobs_inhire_detail': ['raw_payload'],
+    'jobs_gupy_detail': [('next_data', 'TEXT')],
+    'jobs_inhire_detail': [('raw_payload', 'TEXT')],
     'jobs_linkedin_detail': [
-        'detail_html', 'job_function', 'industries',
-        'posted_at', 'num_applicants',
+        ('detail_html', 'TEXT'),
+        ('job_function', 'TEXT'),
+        ('industries', 'TEXT'),
+        ('posted_at', 'TEXT'),
+        ('num_applicants', 'INTEGER'),
     ],
 }
 
@@ -51,13 +54,23 @@ def _ensure_detail_schema():
         return
     try:
         for table, cols_required in _DETAIL_MIGRATIONS.items():
-            existing = {r[1] for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
-            if not existing:
+            info = {r[1]: (r[2] or '').upper()
+                    for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
+            if not info:
                 continue
-            for col in cols_required:
-                if col not in existing:
-                    logger.info('schema migration: adding %s.%s', table, col)
-                    con.execute(f'ALTER TABLE {table} ADD COLUMN {col} TEXT')
+            for col, coltype in cols_required:
+                want = coltype.upper()
+                if col not in info:
+                    logger.info('schema migration: adding %s.%s (%s)', table, col, want)
+                    con.execute(f'ALTER TABLE {table} ADD COLUMN {col} {want}')
+                elif info[col] != want:
+                    # Earlier migration added this column with the wrong affinity
+                    # (e.g. INTEGER stored as TEXT). Drop + re-add to restore the
+                    # right type. SQLite keeps this a fast O(1) metadata change.
+                    logger.info('schema migration: retyping %s.%s from %s to %s',
+                                table, col, info[col], want)
+                    con.execute(f'ALTER TABLE {table} DROP COLUMN {col}')
+                    con.execute(f'ALTER TABLE {table} ADD COLUMN {col} {want}')
         con.commit()
     finally:
         con.close()
