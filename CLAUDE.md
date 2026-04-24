@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build all services
 docker compose build
 
-# Start API and Web UI (scraper, selenium, scraper-linkedin are profile-gated)
+# Start API and Web UI (scraper, selenium, scraper-linkedin, linkedin-detail are profile-gated)
 docker compose up -d
 # Web UI: http://localhost:8080 | API: http://localhost:5000 (internal only; access via web proxy)
 
@@ -27,6 +27,9 @@ docker compose run --rm scraper
 # Run Selenium-based LinkedIn scraper — selenium starts via depends_on healthcheck
 docker compose run --rm --build scraper-linkedin
 # Inspect browser live at http://localhost:7900 (noVNC, no password)
+
+# Bring up the on-demand LinkedIn detail sidecar (keeps a Selenium driver warm)
+docker compose --profile linkedin up -d selenium linkedin-detail
 ```
 
 ### Linting
@@ -57,28 +60,46 @@ docker compose run --rm --no-deps --entrypoint sqlite3 scraper /app/out/jobhubmi
 curl http://localhost:8080/api/health
 curl http://localhost:8080/api/filters
 curl "http://localhost:8080/api/jobs?limit=10&offset=0"
+
+# On-demand job-detail fetch (writes the source-specific jobs_{source}_detail row).
+# LinkedIn path requires the `linkedin` profile because it proxies to the sidecar.
+curl -X POST "http://localhost:8080/api/jobs/<job_id>/detail/fetch"
+curl "http://localhost:8080/api/jobs/<job_id>/detail"
+
+# Follow step-level fetch logs
+docker compose logs -f api             # gupy + inhire fetchers log here
+docker compose logs -f linkedin-detail # linkedin sidecar logs here
 ```
 
 ## Architecture
 
-Three Docker services share a single SQLite file at `./out/jobhubmine.db`:
+All services share a single SQLite file at `./out/jobhubmine.db`:
 
 ```
 Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (React/Nginx)
+       ▲                            │
+       │                            │ on-demand LinkedIn detail fetch
+       └─── linkedin-detail  ◀──────┘   (profile: linkedin)
+            (Flask sidecar,
+             keeps Selenium
+             driver warm)
 ```
 
 - **HTTP Scraper** (`app/main.py` + `app/scrapers/` package) — runs on-demand via `docker compose run`. Each source is a `Scraper` subclass in `app/scrapers/<source>.py` (currently `GupyScraper`, `InhireScraper`), re-exported from `app/scrapers/__init__.py`. `KNOWN_SOURCES` in `app/main.py` gates which source names can become table-name suffixes (SQL-injection defence). A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
 - **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper. The `selenium` and `scraper-linkedin` compose services sit behind the `linkedin` profile so they don't autostart on bare `up`. `docker compose run --rm scraper-linkedin` auto-activates the profile; selenium comes up via `depends_on` health check. Writes `out/linkedin_<ts>.json` AND loads rows into `jobs_linkedin_{ts}` / `companies_linkedin_{ts}` → merged into `_latest` via `sqlite-init.sql` (mounted read-only into the container). Unlike the HTTP scraper, it orchestrates its own schema init + merge in-process (see `app/db.py`) — it does not go through `run_scrap.sh`. Configured entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
-- **API** (`api/app.py`) — five read-only Flask endpoints served by 2 Gunicorn workers. Filter logic is built dynamically in `build_filters()`.
-- **Web** (`web/src/`) — React SPA, state in `App.js`. Nginx proxies `/api/*` to Flask, eliminating CORS. `entrypoint.sh` injects `API_URL` at container start.
+- **API** (`api/app.py` + `api/fetchers/`) — Flask endpoints served by 2 Gunicorn workers (**`--timeout 120`** because the LinkedIn detail round-trip can take 30–60 s). Read endpoints use `build_filters()` over `jobs_all`/`job_details` views; the write endpoint (`POST /api/jobs/<id>/detail/fetch`) dispatches per-source to fetchers in `api/fetchers/`. Each connection enables WAL once (`_enable_wal`) so API writes don't block a concurrent scraper run.
+- **linkedin-detail sidecar** (`scrapers/linkedin-ff-selenium/app/detail_server.py`) — built from the same image as `scraper-linkedin` but with a different entrypoint (`python3 -m app.detail_server`). Lives under the `linkedin` profile, exposes `POST /fetch/<job_id>` on port 8000 of the compose network, keeps one cached `LinkedInSeleniumScraper` behind `_driver_lock`, and auto-rebuilds the driver when the Selenium hub GCs the session (~3 min idle — see `_scrape_with_retry`).
+- **Web** (`web/src/`) — React SPA, state in `App.js`. Nginx proxies `/api/*` to Flask (**`proxy_read_timeout 120s`** to match the gunicorn timeout), eliminating CORS. `entrypoint.sh` injects `API_URL` at container start. `JobDetails.jsx` has two states driven by `has_detail`: **Sync** button vs. rendered payload (DOMPurify-sanitized HTML for gupy/inhire, plain-text for LinkedIn); a collapsible `<details>` at the bottom renders the raw source JSON (`next_data`/`raw_payload`) via `JsonTree.jsx`.
 
 ### API Endpoints
 
-| Route | Key query params |
+| Route | Purpose / key query params |
 |---|---|
 | `GET /api/health` | — |
 | `GET /api/jobs` | `search`, `company_id`, `city`, `state`, `department`, `workplace_type`, `jobType`, `source`, `sort`, `order`, `limit` (max 1000), `offset` |
-| `GET /api/jobs/<job_id>` | — |
+| `GET /api/jobs/<job_id>` | Single job row (reads from `jobs_all` + `companies_all`). |
+| `GET /api/jobs/<job_id>/detail` | 404 unless the detail has been synced; returns the source-specific `jobs_{source}_detail` row. |
+| `POST /api/jobs/<job_id>/detail/fetch` | On-demand fetch. Dispatches to `api/fetchers/{source}.py`; for LinkedIn, proxies to the sidecar. Upserts the row and returns it. 501 if the source isn't wired, 502 on upstream failure. |
 | `GET /api/companies` | — |
 | `GET /api/filters` | — |
 
@@ -91,6 +112,16 @@ Per-source tables with unioned views:
 - Per-source `<SOURCE>_WRITE_MODE` env var controls merge semantics: `replace` (default for gupy/inhire) wipes `_latest` before merging this run so dropped IDs disappear; `append` (default for linkedin) keeps prior rows. An `EXISTS` guard in `sqlite-init.sql` ensures an empty/failed run never wipes good data.
 - Pre-split DBs (where `jobs_all` was a TABLE) are migrated once on first run by `migrate-to-per-source.sql`, guarded in `run_scrap.sh` via a `sqlite_master` type check. The migration redistributes rows by `source` column and drops the legacy tables so `sqlite-init.sql` can recreate the UNION views.
 - Adding a new source means adding `CREATE TABLE` + `INSERT OR REPLACE` blocks + another `UNION ALL` arm in `sqlite-init.sql`, mirror entries in `migrate-to-per-source.sql`, a scraper class under `app/scrapers/`, and appending the source name to `KNOWN_SOURCES`.
+
+### On-demand detail tables (separate from bulk scrape)
+
+Per-source `jobs_{source}_detail` tables are populated by the POST `/detail/fetch` endpoint, not by the bulk scraper:
+
+- Schema is source-specific (gupy stores `description_html`/`responsibilities_html`/…, inhire stores `description_html`/`about_html`/…, linkedin stores `description`/`seniority`/…). Each source also stores a **raw full-payload** column: `jobs_gupy_detail.next_data` (raw `__NEXT_DATA__` JSON), `jobs_inhire_detail.raw_payload` (raw API JSON), `jobs_linkedin_detail.detail_html` (rendered `<main>` HTML).
+- The `job_details` view LEFT JOINs all three detail tables and exposes `has_detail` + `detail_fetched_at` so the SPA can decide whether to show the Sync button.
+- **Schema migration hook**: `api/app.py::_ensure_detail_schema` runs at module import and ALTERs each table to add any column in `_DETAIL_MIGRATIONS` that `PRAGMA table_info` reports as missing (`CREATE TABLE IF NOT EXISTS` can't add columns to an existing table). The sidecar has a parallel `_ensure_schema` in `detail_server.py`. When you add a new detail column, update the `CREATE TABLE` in `sqlite-init.sql` **and** the corresponding `_DETAIL_MIGRATIONS` entry; existing DBs pick it up on the next API/sidecar start.
+- Fetchers live in `api/fetchers/<source>.py`, registered in `api/fetchers/__init__.py::FETCHERS`. They return a dict whose keys match the detail-table columns (minus `id` and `fetched_at`); `upsert_detail` builds the `INSERT OR REPLACE` dynamically from the dict.
+- LinkedIn's fetcher proxies to `http://linkedin-detail:8000/fetch/<id>` (compose-network DNS, see `LINKEDIN_DETAIL_URL` env); the sidecar writes its own row first, the API upserts again — both are idempotent INSERT-OR-REPLACEs.
 
 ### Selenium Scraper Internals
 
@@ -113,6 +144,7 @@ Per-source tables with unioned views:
 - `prop-types` validation on all components.
 - `fetch` inside `useEffect` with `AbortController` for cleanup.
 - Handle loading / error / success states explicitly.
+- Any externally-sourced HTML rendered via `dangerouslySetInnerHTML` must be piped through `DOMPurify.sanitize` first (see `JobDetails.jsx`).
 
 ## Key Files
 
@@ -121,7 +153,11 @@ Per-source tables with unioned views:
 | `app/main.py` | HTTP scraper entry point — orchestrates the per-source scrapers, writes `jobs_{source}_{ts}` tables |
 | `app/scrapers/base.py` | `Scraper` base class + `get_http_session()` (retry/backoff) |
 | `app/scrapers/__init__.py` | Re-exports each source scraper; must register new sources here |
-| `api/app.py` | Flask endpoints and `build_filters()` helper |
+| `api/app.py` | Flask endpoints, `build_filters()`, `_ensure_detail_schema` migration hook, WAL enable |
+| `api/fetchers/` | On-demand detail fetchers (gupy, inhire, linkedin). `__init__.py::FETCHERS` dispatches by `source`. |
+| `scrapers/linkedin-ff-selenium/app/detail_server.py` | Sidecar: Flask app wrapping a warm Selenium driver for per-job detail fetches |
+| `web/src/components/JobDetails.jsx` | Two-state modal (Sync vs. rendered payload), source-specific rendering, collapsible raw-JSON `<details>` |
+| `web/src/components/JsonTree.jsx` | Minimal recursive JSON explorer (expand/collapse, colour-coded primitives) |
 | `sqlite-init.sql` | Full DB schema: per-source tables, `_latest` tables, UNION views. Runs pre- and post-scrape; `${ts}` substituted by `run_scrap.sh` |
 | `migrate-to-per-source.sql` | One-shot migration from the pre-split `jobs_all`/`companies_all` TABLE schema; invoked conditionally by `run_scrap.sh` |
 | `run_scrap.sh` | Validates timestamp, runs schema init, conditionally applies migration, runs scraper, re-applies schema |
