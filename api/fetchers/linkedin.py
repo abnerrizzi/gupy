@@ -8,7 +8,9 @@ the earlier path that proxied to the Selenium sidecar — no warm driver
 required, so the fetch typically completes in under a second."""
 import logging
 import os
+import re
 import time
+from datetime import datetime, timedelta, timezone
 
 from bs4 import BeautifulSoup
 
@@ -32,6 +34,47 @@ _CRITERIA_KEYS = {
     'job function': 'job_function',
     'industries': 'industries',
 }
+
+_RELATIVE_UNITS = {
+    'minute': 'minutes',
+    'hour': 'hours',
+    'day': 'days',
+    'week': 'weeks',
+    'month': 'days',    # timedelta lacks months; approximate as 30 days
+    'year': 'days',     # approximate as 365 days
+}
+_RELATIVE_MULTIPLIER = {'month': 30, 'year': 365}
+
+
+def _parse_posted_time_ago(text: str) -> str:
+    """Convert LinkedIn's relative timestamp ("19 hours ago", "3 days ago",
+    "Just now") into an ISO-8601 UTC datetime. Returns '' if the text can't
+    be parsed — LinkedIn's guest page only gives relative precision so the
+    result is approximate by design."""
+    if not text:
+        return ''
+    t = text.strip().lower()
+    if 'just' in t or 'moments ago' in t:
+        return datetime.now(timezone.utc).isoformat(timespec='seconds')
+    m = re.match(r'^(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago', t)
+    if not m:
+        return ''
+    n = int(m.group(1))
+    unit = m.group(2)
+    if unit in _RELATIVE_MULTIPLIER:
+        n *= _RELATIVE_MULTIPLIER[unit]
+    kwargs = {_RELATIVE_UNITS[unit]: n}
+    dt = datetime.now(timezone.utc) - timedelta(**kwargs)
+    return dt.isoformat(timespec='seconds')
+
+
+def _parse_applicants(text: str) -> int | None:
+    """Extract the integer from "Over 200 applicants", "155 applicants", or
+    "1 applicant". Returns None if no number is present."""
+    if not text:
+        return None
+    m = re.search(r'(\d+)', text)
+    return int(m.group(1)) if m else None
 
 
 def _extract_description_html(soup: BeautifulSoup) -> str:
@@ -92,17 +135,34 @@ def fetch_linkedin_detail(job_id: str, context: dict) -> dict:
     criteria = _extract_criteria(soup)
     detail_html = response.text
 
+    posted_raw = ''
+    posted_el = soup.select_one('[class*=posted-time-ago__text]')
+    if posted_el:
+        posted_raw = posted_el.get_text(strip=True)
+    posted_at = _parse_posted_time_ago(posted_raw)
+
+    applicants_raw = ''
+    applicants_el = soup.select_one(
+        '[class*=num-applicants__caption], [class*=num-applicants__figure]'
+    )
+    if applicants_el:
+        applicants_raw = applicants_el.get_text(' ', strip=True)
+    num_applicants = _parse_applicants(applicants_raw)
+
     fields = {
         'description': description_html,
         'seniority': criteria.get('seniority', ''),
         'employment_type': criteria.get('employment_type', ''),
         'job_function': criteria.get('job_function', ''),
         'industries': criteria.get('industries', ''),
+        'posted_at': posted_at,
+        'num_applicants': num_applicants,
         'detail_html': detail_html,
     }
     logger.info(
         '[linkedin %s] <== fetch done — desc=%d detail_html=%d seniority=%r '
-        'employment_type=%r job_function=%r industries=%r',
+        'employment_type=%r job_function=%r industries=%r '
+        'posted=%r→%s applicants=%r→%s',
         job_id,
         len(fields['description']),
         len(fields['detail_html']),
@@ -110,5 +170,7 @@ def fetch_linkedin_detail(job_id: str, context: dict) -> dict:
         fields['employment_type'],
         fields['job_function'],
         fields['industries'],
+        posted_raw, posted_at or '-',
+        applicants_raw, num_applicants,
     )
     return fields
