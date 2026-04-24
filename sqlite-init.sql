@@ -126,6 +126,8 @@ CREATE TABLE IF NOT EXISTS jobs_linkedin_detail (
     employment_type TEXT,
     job_function TEXT,
     industries TEXT,
+    posted_at TEXT,
+    num_applicants INTEGER,
     detail_html TEXT,
     fetched_at TEXT NOT NULL
 );
