@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
-function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrder, onJobClick, onPageChange, onSort, onSaveJob, isJobSaved }) {
+function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrder, onJobClick, onPageChange, onSort, onToggleSave, isJobSaved }) {
   if (loading && jobs.length === 0) {
     return <div className="loading">Carregando vagas...</div>;
   }
@@ -67,10 +67,10 @@ function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrd
                     <button
                       type="button"
                       className={'icon-btn' + (saved ? ' is-saved' : '')}
-                      title={saved ? 'Vaga salva' : 'Salvar vaga'}
-                      aria-label={saved ? 'Vaga já salva' : 'Salvar vaga'}
+                      title={saved ? 'Remover dos salvos' : 'Salvar vaga'}
+                      aria-label={saved ? 'Remover dos salvos' : 'Salvar vaga'}
                       aria-pressed={saved}
-                      onClick={(e) => { e.stopPropagation(); if (!saved) onSaveJob(job); }}
+                      onClick={(e) => { e.stopPropagation(); onToggleSave(job); }}
                     >
                       ♥
                     </button>
@@ -136,7 +136,7 @@ JobTable.propTypes = {
   onJobClick: PropTypes.func.isRequired,
   onPageChange: PropTypes.func.isRequired,
   onSort: PropTypes.func.isRequired,
-  onSaveJob: PropTypes.func.isRequired,
+  onToggleSave: PropTypes.func.isRequired,
   isJobSaved: PropTypes.func.isRequired,
 };
 

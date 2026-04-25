@@ -97,7 +97,7 @@ SourceDetail.propTypes = {
   detail: PropTypes.object,
 };
 
-function JobDetails({ job, detail, loading, error, company, onSync, onClose, onSaveJob, isSaved }) {
+function JobDetails({ job, detail, loading, error, company, onSync, onClose, onToggleSave, isSaved }) {
   const { closeBtnRef, dialogProps } = useModalA11y({
     isOpen: !!job,
     onClose,
@@ -151,11 +151,11 @@ function JobDetails({ job, detail, loading, error, company, onSync, onClose, onS
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
             <button
               type="button"
-              className="btn btn-primary"
+              className={isSaved ? 'btn btn-ghost' : 'btn btn-primary'}
               aria-pressed={isSaved}
-              onClick={() => { if (!isSaved) onSaveJob(job); }}
+              onClick={() => onToggleSave(job)}
             >
-              {isSaved ? '♥ Vaga salva' : '♥ Salvar vaga'}
+              {isSaved ? '♥ Remover dos salvos' : '♥ Salvar vaga'}
             </button>
             {job.job_url && (
               <a
@@ -213,7 +213,7 @@ JobDetails.propTypes = {
   }),
   onSync: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
-  onSaveJob: PropTypes.func.isRequired,
+  onToggleSave: PropTypes.func.isRequired,
   isSaved: PropTypes.bool,
 };
 

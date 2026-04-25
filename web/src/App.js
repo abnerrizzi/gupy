@@ -187,7 +187,14 @@ function App() {
     }
   };
 
-  const handleSaveJob = useCallback((job) => addJob(jobRowToTracked(job)), [addJob]);
+  const handleToggleSave = useCallback((job) => {
+    const id = String(job.job_id);
+    if (isTracked(id)) {
+      removeJob(id);
+    } else {
+      addJob(jobRowToTracked(job));
+    }
+  }, [isTracked, removeJob, addJob]);
   const isJobSaved = useCallback((id) => isTracked(String(id)), [isTracked]);
 
   const openTracked = (job) => setTrackedOpen(job);
@@ -313,7 +320,7 @@ function App() {
               }
               setPageNum(0);
             }}
-            onSaveJob={handleSaveJob}
+            onToggleSave={handleToggleSave}
             isJobSaved={isJobSaved}
           />
         </div>
@@ -349,7 +356,7 @@ function App() {
           company={companies.find((c) => c.id === selectedJob.company_id)}
           onSync={handleSyncDetail}
           onClose={() => { setSelectedJob(null); setJobDetail(null); setDetailError(null); }}
-          onSaveJob={handleSaveJob}
+          onToggleSave={handleToggleSave}
           isSaved={isJobSaved(selectedJob.job_id)}
         />
       )}
