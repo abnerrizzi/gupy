@@ -10,9 +10,11 @@ import SavedJobs from './components/SavedJobs';
 import Pipeline from './components/Pipeline';
 import Settings from './components/Settings';
 import TrackedJobModal from './components/TrackedJobModal';
+import ToastTray from './components/ToastTray';
 import useTrackedJobs from './hooks/useTrackedJobs';
 import useUser from './hooks/useUser';
 import useAuth from './hooks/useAuth';
+import useToasts from './hooks/useToasts';
 import { STAGE_NEXT } from './constants/stages';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -55,9 +57,10 @@ function trackedToSelectedJob(t) {
 function App() {
   const auth = useAuth();
   const { user, setUser } = useUser();
-  const [trackerError, setTrackerError] = useState(null);
+  const toasts = useToasts();
+  const pushError = useCallback((message) => toasts.push({ type: 'error', message }), [toasts]);
   const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } =
-    useTrackedJobs(auth.status, setTrackerError);
+    useTrackedJobs(auth.status, pushError);
 
   useEffect(() => {
     if (auth.user) setUser({ name: auth.user.username, email: '' });
@@ -275,11 +278,7 @@ function App() {
   return (
     <div className="app">
       <Sidebar page={page} setPage={setPage} counts={counts} user={user} onLogout={handleLogout} />
-      {trackerError && (
-        <div role="status" aria-live="polite" className="tracker-error-banner" onClick={() => setTrackerError(null)}>
-          {trackerError}
-        </div>
-      )}
+      <ToastTray toasts={toasts.toasts} onDismiss={toasts.dismiss} />
       <main className="main">
         {page === 'dashboard' && (
           <Dashboard

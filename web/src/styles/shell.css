@@ -130,6 +130,12 @@ textarea.notes:focus { outline: none; border-color: var(--jh-primary); box-shado
 .field input { padding: 0.625rem 0.875rem; border: 2px solid var(--jh-border); border-radius: 0.5rem; font: 400 0.875rem var(--jh-font-sans); }
 .field input:focus { outline: none; border-color: var(--jh-primary); box-shadow: 0 0 0 4px var(--jh-primary-ring); }
 
+.toast-tray { position: fixed; right: 1.5rem; bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 200; max-width: 360px; }
+.toast { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.625rem; box-shadow: var(--jh-shadow); font-size: 0.8125rem; background: #fff; border: 1px solid var(--jh-border); color: var(--jh-fg); }
+.toast-error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.toast-info { background: var(--jh-primary-50); border-color: #bfdbfe; color: #1e40af; }
+.toast-close { background: none; border: none; color: inherit; font-size: 1rem; cursor: pointer; line-height: 1; padding: 0; flex: 0 0 auto; }
+
 .tracker-modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 1.5rem; z-index: 100; }
 .tracker-modal { background: #fff; border-radius: 1rem; max-width: 780px; width: 100%; max-height: 90vh; overflow: auto; box-shadow: var(--jh-shadow-modal); }
 .tracker-modal-head { padding: 2rem 2rem 1rem; border-bottom: 1px solid var(--jh-border); display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
