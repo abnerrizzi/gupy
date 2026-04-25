@@ -10,7 +10,7 @@ function Pipeline({ trackedJobs, onOpen, onMove }) {
 
   const onDrop = (e, stage) => {
     e.preventDefault();
-    const id = e.dataTransfer.getData('id');
+    const id = e.dataTransfer.getData('text/plain');
     if (id) onMove(id, stage);
   };
 
@@ -42,7 +42,7 @@ function Pipeline({ trackedJobs, onOpen, onMove }) {
                 key={j.id}
                 className="kanban-card"
                 draggable
-                onDragStart={(e) => e.dataTransfer.setData('id', j.id)}
+                onDragStart={(e) => e.dataTransfer.setData('text/plain', j.id)}
                 onClick={() => onOpen(j)}
               >
                 <div className="title">{j.title}</div>

@@ -70,7 +70,6 @@ function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrd
                       title={saved ? 'Vaga salva' : 'Salvar vaga'}
                       aria-label={saved ? 'Vaga já salva' : 'Salvar vaga'}
                       aria-pressed={saved}
-                      disabled={saved}
                       onClick={(e) => { e.stopPropagation(); if (!saved) onSaveJob(job); }}
                     >
                       ♥

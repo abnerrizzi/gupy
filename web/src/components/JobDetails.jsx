@@ -151,9 +151,9 @@ function JobDetails({ job, detail, loading, error, company, onSync, onClose, onS
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
             <button
               type="button"
-              className={'btn btn-primary' + (isSaved ? '' : '')}
-              disabled={isSaved}
-              onClick={() => onSaveJob(job)}
+              className="btn btn-primary"
+              aria-pressed={isSaved}
+              onClick={() => { if (!isSaved) onSaveJob(job); }}
             >
               {isSaved ? '♥ Vaga salva' : '♥ Salvar vaga'}
             </button>
