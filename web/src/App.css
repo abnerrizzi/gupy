@@ -36,10 +36,14 @@
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   background-color: white;
-  min-width: 160px;
+  width: 180px;
   color: var(--text-main);
   cursor: pointer;
   transition: border-color 0.2s;
+}
+
+.FilterBar select.filter-select-wide {
+  width: 360px;
 }
 
 .FilterBar select:hover {
@@ -576,7 +580,8 @@
 
 /* Responsive */
 @media (max-width: 640px) {
-  .FilterBar select { width: 100%; }
+  .FilterBar select,
+  .FilterBar select.filter-select-wide { width: 100%; }
   .info-grid { grid-template-columns: 1fr; }
   .job-details-header { padding: 1.5rem; flex-direction: column; text-align: center; }
   .job-details-body { padding: 1.5rem; }
