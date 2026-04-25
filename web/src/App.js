@@ -58,7 +58,7 @@ function trackedToSelectedJob(t) {
 function App() {
   const auth = useAuth();
   const { user, setUser } = useUser();
-  const { theme, cycle: cycleTheme } = useTheme();
+  const { theme, toggle: toggleTheme } = useTheme();
   const { toasts: toastList, push: pushToast, dismiss: dismissToast } = useToasts();
   const pushError = useCallback((message) => pushToast({ type: 'error', message }), [pushToast]);
   const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } =
@@ -290,7 +290,7 @@ function App() {
         user={user}
         onLogout={handleLogout}
         theme={theme}
-        onCycleTheme={cycleTheme}
+        onToggleTheme={toggleTheme}
       />
       <ToastTray toasts={toastList} onDismiss={dismissToast} />
       <main className="main">
