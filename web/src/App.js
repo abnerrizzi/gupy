@@ -61,6 +61,7 @@ function App() {
   const [source, setSource] = useState('');
 
   const [trackedOpen, setTrackedOpen] = useState(null);
+  const [browseVisited, setBrowseVisited] = useState(false);
 
   const fetchFilters = useCallback(async () => {
     try {
@@ -119,14 +120,15 @@ function App() {
   }, [searchDebounced, companyId, city, state, department, workplaceType, jobType, source, sortKey, sortOrder, pageNum]);
 
   useEffect(() => {
-    if (!authed) return;
+    if (!authed || !browseVisited) return;
     fetchFilters();
     fetchCompanies();
-  }, [authed, fetchFilters, fetchCompanies]);
+  }, [authed, browseVisited, fetchFilters, fetchCompanies]);
 
   useEffect(() => {
     setSelectedJob(null);
     setTrackedOpen(null);
+    if (page === 'browse') setBrowseVisited(true);
   }, [page]);
 
   useEffect(() => {
@@ -135,11 +137,11 @@ function App() {
   }, [search]);
 
   useEffect(() => {
-    if (!authed) return undefined;
+    if (!authed || !browseVisited) return undefined;
     const controller = new AbortController();
     fetchJobs(controller.signal);
     return () => controller.abort();
-  }, [authed, fetchJobs]);
+  }, [authed, browseVisited, fetchJobs]);
 
   useEffect(() => {
     if (!selectedJob) return undefined;
