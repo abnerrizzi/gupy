@@ -53,25 +53,23 @@ function Login({ onLogin, onRegister }) {
         {isRegister && (
           <>
             <div className="field">
-              <label htmlFor="login-name">Nome</label>
+              <label htmlFor="login-name">Nome <span style={{ color: 'var(--jh-fg-subtle)', textTransform: 'none', fontWeight: 400 }}>(opcional)</span></label>
               <input
                 id="login-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="given-name"
                 maxLength={64}
-                required
               />
             </div>
             <div className="field">
-              <label htmlFor="login-surname">Sobrenome</label>
+              <label htmlFor="login-surname">Sobrenome <span style={{ color: 'var(--jh-fg-subtle)', textTransform: 'none', fontWeight: 400 }}>(opcional)</span></label>
               <input
                 id="login-surname"
                 value={surname}
                 onChange={(e) => setSurname(e.target.value)}
                 autoComplete="family-name"
                 maxLength={64}
-                required
               />
             </div>
           </>

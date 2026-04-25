@@ -351,16 +351,14 @@ def auth_register():
     ok, reason = is_valid_password(password)
     if not ok:
         return jsonify({'error': reason}), 400
-    if not name or len(name) > 64:
-        return jsonify({'error': 'Nome é obrigatório (até 64 caracteres)'}), 400
-    if not surname or len(surname) > 64:
-        return jsonify({'error': 'Sobrenome é obrigatório (até 64 caracteres)'}), 400
+    if len(name) > 64 or len(surname) > 64:
+        return jsonify({'error': 'Nome/sobrenome muito longos (máx 64 caracteres)'}), 400
 
     db = get_db()
     try:
         cur = db.execute(
             'INSERT INTO users (username, password_hash, name, surname) VALUES (?, ?, ?, ?)',
-            (username, hash_password(password), name, surname),
+            (username, hash_password(password), name or None, surname or None),
         )
         db.commit()
     except sqlite3.IntegrityError:
@@ -369,7 +367,8 @@ def auth_register():
     user_id = cur.lastrowid
     _login_session(user_id)
     return jsonify({'user': {
-        'id': user_id, 'username': username, 'name': name, 'surname': surname,
+        'id': user_id, 'username': username,
+        'name': name or None, 'surname': surname or None,
     }}), 201
 
 
