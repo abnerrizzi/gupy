@@ -102,6 +102,18 @@ Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (
 | `POST /api/jobs/<job_id>/detail/fetch` | On-demand fetch. Dispatches to `api/fetchers/{source}.py`; for LinkedIn, proxies to the sidecar. Upserts the row and returns it. 501 if the source isn't wired, 502 on upstream failure. |
 | `GET /api/companies` | — |
 | `GET /api/filters` | — |
+| `POST /api/auth/register` | Body `{username, password}`. 201 + sets cookie session. 409 if username exists. 400 on invalid password. |
+| `POST /api/auth/login` | Body `{username, password}`. 200 + cookie. 401 generic on bad credentials (no user enumeration). |
+| `POST /api/auth/logout` | 204; clears the session cookie. |
+| `GET /api/auth/me` | 200 with `{user: {id, username}}` if logged in, 401 otherwise. |
+| `GET /api/me/tracked` | `@login_required` — returns the caller's saved jobs (joined `tracked_jobs`). |
+| `POST /api/me/tracked` | `@login_required` — body is the snapshot from `web/src/App.js::jobRowToTracked`. Idempotent on `(user_id, job_id)`. |
+| `PATCH /api/me/tracked/<job_id>` | `@login_required` — body `{stage?, notes?}`. Validates `stage` against `STAGE_ORDER`; appends a timeline event when `stage` changes. |
+| `DELETE /api/me/tracked/<job_id>` | `@login_required` — 204 / 404. |
+
+### Auth model
+
+Cookie-session auth via `flask.session` (signed by `SECRET_KEY`, `HttpOnly`, `SameSite=Lax`, `Secure` when `SESSION_COOKIE_SECURE=true`). Password hashing via `werkzeug.security.generate_password_hash` / `check_password_hash` — no extra dep. Helpers and the `@login_required` decorator live in `api/auth.py`. The SPA reaches the API via the nginx proxy on the same origin, so cookies cross naturally; `web/src/utils/api.js::fetchJSON` always sets `credentials: 'include'`. Set `SECRET_KEY` in `.env` (sample in `.env_sample`).
 
 ### Database Pattern
 
