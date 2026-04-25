@@ -79,6 +79,31 @@ def _ensure_detail_schema():
 _ensure_detail_schema()
 
 
+def _ensure_app_schema():
+    """Create app-state tables (users, tracked_jobs) if missing. Mirrors
+    sqlite-init.sql so the API works even when the file hasn't been re-applied."""
+    try:
+        con = sqlite3.connect(DATABASE)
+    except sqlite3.OperationalError:
+        return
+    try:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            )
+        """)
+        con.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        con.commit()
+    finally:
+        con.close()
+
+
+_ensure_app_schema()
+
+
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
