@@ -114,10 +114,16 @@ def _ensure_app_schema():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE COLLATE NOCASE,
                 password_hash TEXT NOT NULL,
+                name TEXT,
+                surname TEXT,
                 created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
             )
         """)
         con.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        existing_user_cols = {r[1] for r in con.execute("PRAGMA table_info(users)").fetchall()}
+        for col in ('name', 'surname'):
+            if col not in existing_user_cols:
+                con.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
         con.execute("""
             CREATE TABLE IF NOT EXISTS tracked_jobs (
                 user_id        INTEGER NOT NULL,
@@ -313,7 +319,12 @@ def health():
 
 
 def _user_payload(row) -> dict:
-    return {'id': row['id'], 'username': row['username']}
+    return {
+        'id': row['id'],
+        'username': row['username'],
+        'name': row['name'] if 'name' in row.keys() else None,
+        'surname': row['surname'] if 'surname' in row.keys() else None,
+    }
 
 
 def _login_session(user_id: int) -> None:
@@ -331,6 +342,8 @@ def auth_register():
     body = request.get_json(silent=True) or {}
     username = (body.get('username') or '').strip()
     password = body.get('password') or ''
+    name = (body.get('name') or '').strip()
+    surname = (body.get('surname') or '').strip()
 
     ok, reason = is_valid_username(username)
     if not ok:
@@ -338,12 +351,16 @@ def auth_register():
     ok, reason = is_valid_password(password)
     if not ok:
         return jsonify({'error': reason}), 400
+    if not name or len(name) > 64:
+        return jsonify({'error': 'Nome é obrigatório (até 64 caracteres)'}), 400
+    if not surname or len(surname) > 64:
+        return jsonify({'error': 'Sobrenome é obrigatório (até 64 caracteres)'}), 400
 
     db = get_db()
     try:
         cur = db.execute(
-            'INSERT INTO users (username, password_hash) VALUES (?, ?)',
-            (username, hash_password(password)),
+            'INSERT INTO users (username, password_hash, name, surname) VALUES (?, ?, ?, ?)',
+            (username, hash_password(password), name, surname),
         )
         db.commit()
     except sqlite3.IntegrityError:
@@ -351,7 +368,9 @@ def auth_register():
 
     user_id = cur.lastrowid
     _login_session(user_id)
-    return jsonify({'user': {'id': user_id, 'username': username}}), 201
+    return jsonify({'user': {
+        'id': user_id, 'username': username, 'name': name, 'surname': surname,
+    }}), 201
 
 
 @app.route('/api/auth/login', methods=['POST'])
@@ -364,7 +383,7 @@ def auth_login():
 
     db = get_db()
     row = db.execute(
-        'SELECT id, username, password_hash FROM users WHERE username = ? COLLATE NOCASE',
+        'SELECT id, username, password_hash, name, surname FROM users WHERE username = ?',
         (username,),
     ).fetchone()
     if not row or not verify_password(password, row['password_hash']):
@@ -386,7 +405,7 @@ def auth_me():
     if uid is None:
         return jsonify({'error': 'auth required'}), 401
     db = get_db()
-    row = db.execute('SELECT id, username FROM users WHERE id = ?', (uid,)).fetchone()
+    row = db.execute('SELECT id, username, name, surname FROM users WHERE id = ?', (uid,)).fetchone()
     if not row:
         session.clear()
         return jsonify({'error': 'auth required'}), 401

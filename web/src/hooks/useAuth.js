@@ -32,10 +32,10 @@ export default function useAuth() {
     return data.user;
   }, []);
 
-  const register = useCallback(async (username, password) => {
+  const register = useCallback(async (payload) => {
     const data = await fetchJSON('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify(payload),
     });
     setUser(data.user);
     setStatus('authenticated');

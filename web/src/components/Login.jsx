@@ -5,6 +5,8 @@ function Login({ onLogin, onRegister }) {
   const [mode, setMode] = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [surname, setSurname] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -16,7 +18,12 @@ function Login({ onLogin, onRegister }) {
     setSubmitting(true);
     try {
       if (isRegister) {
-        await onRegister(username.trim(), password);
+        await onRegister({
+          username: username.trim(),
+          password,
+          name: name.trim(),
+          surname: surname.trim(),
+        });
       } else {
         await onLogin(username.trim(), password);
       }
@@ -43,6 +50,32 @@ function Login({ onLogin, onRegister }) {
             : 'Acesse sua conta para ver suas vagas salvas e seu pipeline.'}
         </p>
 
+        {isRegister && (
+          <>
+            <div className="field">
+              <label htmlFor="login-name">Nome</label>
+              <input
+                id="login-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="given-name"
+                maxLength={64}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="login-surname">Sobrenome</label>
+              <input
+                id="login-surname"
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+                autoComplete="family-name"
+                maxLength={64}
+                required
+              />
+            </div>
+          </>
+        )}
         <div className="field">
           <label htmlFor="login-username">Usuário</label>
           <input
@@ -50,7 +83,7 @@ function Login({ onLogin, onRegister }) {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"
-            autoFocus
+            autoFocus={!isRegister}
             required
           />
         </div>

@@ -15,8 +15,16 @@ function Settings({ user }) {
           <label>Usuário</label>
           <input value={user?.username || ''} readOnly />
         </div>
+        <div className="field">
+          <label>Nome</label>
+          <input value={user?.name || ''} readOnly />
+        </div>
+        <div className="field">
+          <label>Sobrenome</label>
+          <input value={user?.surname || ''} readOnly />
+        </div>
         <p style={{ fontSize: '0.75rem', color: 'var(--jh-fg-muted)', margin: '0.5rem 0 0' }}>
-          Mais opções (alterar senha, preferências) em breve.
+          Mais opções (alterar senha, edição de dados) em breve.
         </p>
       </div>
     </>
@@ -27,6 +35,8 @@ Settings.propTypes = {
   user: PropTypes.shape({
     id: PropTypes.number,
     username: PropTypes.string,
+    name: PropTypes.string,
+    surname: PropTypes.string,
   }),
 };
 
