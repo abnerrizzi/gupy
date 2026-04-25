@@ -55,7 +55,9 @@ function trackedToSelectedJob(t) {
 function App() {
   const auth = useAuth();
   const { user, setUser } = useUser();
-  const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } = useTrackedJobs();
+  const [trackerError, setTrackerError] = useState(null);
+  const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } =
+    useTrackedJobs(auth.status, setTrackerError);
 
   useEffect(() => {
     if (auth.user) setUser({ name: auth.user.username, email: '' });
@@ -273,6 +275,11 @@ function App() {
   return (
     <div className="app">
       <Sidebar page={page} setPage={setPage} counts={counts} user={user} onLogout={handleLogout} />
+      {trackerError && (
+        <div role="status" aria-live="polite" className="tracker-error-banner" onClick={() => setTrackerError(null)}>
+          {trackerError}
+        </div>
+      )}
       <main className="main">
         {page === 'dashboard' && (
           <Dashboard
