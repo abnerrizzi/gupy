@@ -4,11 +4,33 @@ import sqlite3
 import json
 import logging
 import time
-from flask import Flask, request, jsonify, g
+from datetime import timedelta
+
+from flask import Flask, request, jsonify, g, session
 
 from fetchers import FETCHERS, FetchError
+from auth import (
+    current_user_id,
+    hash_password,
+    is_valid_password,
+    is_valid_username,
+    login_required,
+    verify_password,
+)
 
 app = Flask(__name__)
+
+_default_secret = 'dev-only-insecure-secret'
+app.secret_key = os.environ.get('SECRET_KEY') or _default_secret
+if app.secret_key == _default_secret and os.environ.get('FLASK_ENV') == 'production':
+    raise RuntimeError('SECRET_KEY env var is required in production')
+
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = (
+    os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
+)
+app.permanent_session_lifetime = timedelta(days=30)
 
 logging.basicConfig(
     level=os.environ.get('LOG_LEVEL', 'INFO'),
@@ -262,6 +284,87 @@ def safe_int(val, default, min_val=None, max_val=None):
 @app.route('/api/health')
 def health():
     return jsonify({'status': 'ok'})
+
+
+def _user_payload(row) -> dict:
+    return {'id': row['id'], 'username': row['username']}
+
+
+def _login_session(user_id: int) -> None:
+    session.clear()
+    session['user_id'] = user_id
+    session.permanent = True
+
+
+def _generic_login_error():
+    return jsonify({'error': 'Usuário ou senha inválidos'}), 401
+
+
+@app.route('/api/auth/register', methods=['POST'])
+def auth_register():
+    body = request.get_json(silent=True) or {}
+    username = (body.get('username') or '').strip()
+    password = body.get('password') or ''
+
+    ok, reason = is_valid_username(username)
+    if not ok:
+        return jsonify({'error': reason}), 400
+    ok, reason = is_valid_password(password)
+    if not ok:
+        return jsonify({'error': reason}), 400
+
+    db = get_db()
+    try:
+        cur = db.execute(
+            'INSERT INTO users (username, password_hash) VALUES (?, ?)',
+            (username, hash_password(password)),
+        )
+        db.commit()
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'Esse usuário já existe'}), 409
+
+    user_id = cur.lastrowid
+    _login_session(user_id)
+    return jsonify({'user': {'id': user_id, 'username': username}}), 201
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    body = request.get_json(silent=True) or {}
+    username = (body.get('username') or '').strip()
+    password = body.get('password') or ''
+    if not username or not password:
+        return _generic_login_error()
+
+    db = get_db()
+    row = db.execute(
+        'SELECT id, username, password_hash FROM users WHERE username = ? COLLATE NOCASE',
+        (username,),
+    ).fetchone()
+    if not row or not verify_password(password, row['password_hash']):
+        return _generic_login_error()
+
+    _login_session(row['id'])
+    return jsonify({'user': _user_payload(row)})
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def auth_logout():
+    session.clear()
+    return ('', 204)
+
+
+@app.route('/api/auth/me')
+def auth_me():
+    uid = current_user_id()
+    if uid is None:
+        return jsonify({'error': 'auth required'}), 401
+    db = get_db()
+    row = db.execute('SELECT id, username FROM users WHERE id = ?', (uid,)).fetchone()
+    if not row:
+        session.clear()
+        return jsonify({'error': 'auth required'}), 401
+    return jsonify({'user': _user_payload(row)})
 
 
 def get_job_url(job, company):
