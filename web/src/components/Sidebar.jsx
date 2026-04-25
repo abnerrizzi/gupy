@@ -35,7 +35,10 @@ NavItem.defaultProps = {
   active: false,
 };
 
-function Sidebar({ page, setPage, counts, user, onLogout }) {
+const THEME_LABELS = { system: 'Tema: sistema', light: 'Tema: claro', dark: 'Tema: escuro' };
+const THEME_ICONS = { system: '◐', light: '☀', dark: '☾' };
+
+function Sidebar({ page, setPage, counts, user, onLogout, theme, onCycleTheme }) {
   const initial = (user.name?.trim()?.[0] || '?').toUpperCase();
   const [menuOpen, setMenuOpen] = useState(false);
   const footRef = useRef(null);
@@ -90,6 +93,11 @@ function Sidebar({ page, setPage, counts, user, onLogout }) {
               onClick={() => { setMenuOpen(false); setPage('settings'); }}
             />
             <NavItem
+              icon={THEME_ICONS[theme]}
+              label={THEME_LABELS[theme]}
+              onClick={onCycleTheme}
+            />
+            <NavItem
               icon="⏻"
               label="Sair"
               onClick={() => { setMenuOpen(false); onLogout(); }}
@@ -113,6 +121,8 @@ Sidebar.propTypes = {
     email: PropTypes.string,
   }).isRequired,
   onLogout: PropTypes.func.isRequired,
+  theme: PropTypes.oneOf(['system', 'light', 'dark']).isRequired,
+  onCycleTheme: PropTypes.func.isRequired,
 };
 
 export default Sidebar;

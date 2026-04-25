@@ -15,6 +15,7 @@ import useTrackedJobs from './hooks/useTrackedJobs';
 import useUser from './hooks/useUser';
 import useAuth from './hooks/useAuth';
 import useToasts from './hooks/useToasts';
+import useTheme from './hooks/useTheme';
 import { STAGE_NEXT } from './constants/stages';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -57,6 +58,7 @@ function trackedToSelectedJob(t) {
 function App() {
   const auth = useAuth();
   const { user, setUser } = useUser();
+  const { theme, cycle: cycleTheme } = useTheme();
   const toasts = useToasts();
   const pushError = useCallback((message) => toasts.push({ type: 'error', message }), [toasts]);
   const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } =
@@ -277,7 +279,15 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar page={page} setPage={setPage} counts={counts} user={user} onLogout={handleLogout} />
+      <Sidebar
+        page={page}
+        setPage={setPage}
+        counts={counts}
+        user={user}
+        onLogout={handleLogout}
+        theme={theme}
+        onCycleTheme={cycleTheme}
+      />
       <ToastTray toasts={toasts.toasts} onDismiss={toasts.dismiss} />
       <main className="main">
         {page === 'dashboard' && (
