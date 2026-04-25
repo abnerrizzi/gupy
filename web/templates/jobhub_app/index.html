@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>JobHubMine — App Kit (Saved · Apply · Track)</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="Sidebar.jsx"></script>
+<script type="text/babel" src="Pages.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const SEED = [
+  { id: 1, title: 'Engenheiro de Software Sênior', company: 'Nubank',         location: 'Remoto, BR',         source: 'gupy',     stage: 'aplicada', ago: 'há 2d', notes: 'Recrutadora: Ana — pediu portfólio de sistemas distribuídos.', events: [{when:'02 Mar', what:'Vaga salva'},{when:'04 Mar', what:'Candidatura enviada via Gupy'},{when:'06 Mar', what:'Triagem automatizada concluída'}]},
+  { id: 2, title: 'Product Designer Pleno',         company: 'iFood',          location: 'Híbrido, Osasco SP', source: 'inhire',   stage: 'entrev',   ago: 'há 5d', notes: 'Perguntar sobre processo de research.', events: [{when:'25 Fev', what:'Vaga salva'},{when:'28 Fev', what:'Candidatura enviada'},{when:'05 Mar', what:'Triagem RH'},{when:'08 Mar', what:'Entrevista marcada — sex 14:00'}]},
+  { id: 3, title: 'Tech Lead — Plataforma',         company: 'Globo',          location: 'Remoto, RJ',         source: 'inhire',   stage: 'prop',     ago: 'há 12d', notes: 'Negociar 15% acima do range.', events: [{when:'18 Fev', what:'Vaga salva'},{when:'20 Fev', what:'Candidatura enviada'},{when:'27 Fev', what:'Entrevista técnica'},{when:'04 Mar', what:'Entrevista cultural'},{when:'10 Mar', what:'Proposta recebida'}]},
+  { id: 4, title: 'Data Analyst',                   company: 'Stone',          location: 'Presencial, RJ',     source: 'linkedin', stage: 'salva',    ago: 'há 1d', notes: '', events: [{when:'11 Mar', what:'Vaga salva'}]},
+  { id: 5, title: 'SRE Pleno',                      company: 'iFood',          location: 'Remoto, Campinas SP',source: 'inhire',   stage: 'salva',    ago: 'há 3d', notes: '', events: [{when:'09 Mar', what:'Vaga salva'}]},
+  { id: 6, title: 'Estágio em Backend',             company: 'Mercado Livre',  location: 'Híbrido, SP',        source: 'gupy',     stage: 'salva',    ago: 'há 4d', notes: '', events: [{when:'08 Mar', what:'Vaga salva'}]},
+  { id: 7, title: 'QA Engineer',                    company: 'PagSeguro',      location: 'Remoto, SP',         source: 'linkedin', stage: 'aplicada', ago: 'há 8d', notes: '', events: [{when:'01 Mar', what:'Vaga salva'},{when:'04 Mar', what:'Candidatura enviada'}]},
+  { id: 8, title: 'Jovem Aprendiz — TI',            company: 'Nubank',         location: 'Presencial, SP',     source: 'gupy',     stage: 'encer',    ago: 'há 20d', notes: 'Não houve resposta após 14 dias.', events: [{when:'18 Fev', what:'Vaga salva'},{when:'22 Fev', what:'Candidatura enviada'},{when:'10 Mar', what:'Encerrada por inatividade'}]},
+];
+
+const STAGE_NEXT = { salva:'aplicada', aplicada:'entrev', entrev:'prop', prop:'encer', encer:'encer' };
+
+function App() {
+  const [authed, setAuthed] = useState(() => localStorage.getItem('jh_authed') === '1');
+  const [page, setPage] = useState('dashboard');
+  const [jobs, setJobs] = useState(() => {
+    try { const raw = localStorage.getItem('jh_jobs'); return raw ? JSON.parse(raw) : SEED; } catch { return SEED; }
+  });
+  const [openJob, setOpenJob] = useState(null);
+
+  useEffect(() => { localStorage.setItem('jh_jobs', JSON.stringify(jobs)); }, [jobs]);
+
+  if (!authed) return <Login onEnter={() => { localStorage.setItem('jh_authed','1'); setAuthed(true); }} />;
+
+  const counts = { saved: jobs.filter(j=>j.stage==='salva').length, pipeline: jobs.length };
+
+  const moveJob = (id, stage) => setJobs(js => js.map(j => j.id === id ? {...j, stage, events:[...(j.events||[]), {when:'agora', what:`Movida para ${STAGE_META[stage].label}`}]} : j));
+  const advance = (job) => { moveJob(job.id, STAGE_NEXT[job.stage]); setOpenJob(null); };
+  const setNotes = (id, text) => setJobs(js => js.map(j => j.id === id ? {...j, notes: text} : j));
+  const removeJob = (job) => setJobs(js => js.filter(j => j.id !== job.id));
+
+  const opener = (j) => setOpenJob(j);
+  const fresh = () => jobs.find(j => j.id === openJob?.id);
+
+  return (
+    <div className="app">
+      <Sidebar page={page} setPage={setPage} counts={counts} />
+      <main className="main">
+        {page === 'dashboard' && <Dashboard jobs={jobs} onOpen={opener} />}
+        {page === 'browse' && (
+          <div className="empty card card-pad">
+            <div className="big">Busca de vagas</div>
+            <div>Use o UI Kit Web (../jobhub_web/index.html) — esta tela reaproveita o mesmo componente.</div>
+          </div>
+        )}
+        {page === 'saved' && <SavedJobs jobs={jobs} onOpen={opener} onApply={(j) => moveJob(j.id, 'aplicada')} onRemove={removeJob} />}
+        {page === 'pipeline' && <Pipeline jobs={jobs} onOpen={opener} onMove={moveJob} />}
+        {page === 'settings' && <Settings />}
+      </main>
+      <JobDetailModal job={fresh()} onClose={() => setOpenJob(null)} onAdvance={advance} onNotes={setNotes} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
