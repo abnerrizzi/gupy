@@ -214,6 +214,7 @@ function App() {
   };
   const handleLogout = () => {
     localStorage.removeItem('jh_authed');
+    setUser({ name: '', email: '' });
     setAuthed(false);
   };
 
