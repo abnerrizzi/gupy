@@ -118,6 +118,32 @@ def _ensure_app_schema():
             )
         """)
         con.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS tracked_jobs (
+                user_id        INTEGER NOT NULL,
+                job_id         TEXT NOT NULL,
+                source         TEXT NOT NULL,
+                title          TEXT NOT NULL,
+                company_name   TEXT,
+                company_id     TEXT,
+                location       TEXT,
+                job_url        TEXT,
+                job_type       TEXT,
+                job_department TEXT,
+                workplace_type TEXT,
+                workplace_city TEXT,
+                workplace_state TEXT,
+                stage          TEXT NOT NULL DEFAULT 'salva',
+                notes          TEXT NOT NULL DEFAULT '',
+                events         TEXT NOT NULL DEFAULT '[]',
+                created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                PRIMARY KEY (user_id, job_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+        con.execute("CREATE INDEX IF NOT EXISTS idx_tracked_user ON tracked_jobs(user_id)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_tracked_user_stage ON tracked_jobs(user_id, stage)")
         con.commit()
     finally:
         con.close()
