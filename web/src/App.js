@@ -59,13 +59,17 @@ function App() {
   const auth = useAuth();
   const { user, setUser } = useUser();
   const { theme, cycle: cycleTheme } = useTheme();
-  const toasts = useToasts();
-  const pushError = useCallback((message) => toasts.push({ type: 'error', message }), [toasts]);
+  const { toasts: toastList, push: pushToast, dismiss: dismissToast } = useToasts();
+  const pushError = useCallback((message) => pushToast({ type: 'error', message }), [pushToast]);
   const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } =
     useTrackedJobs(auth.status, pushError);
 
   useEffect(() => {
-    if (auth.user) setUser({ name: auth.user.username, email: '' });
+    if (auth.user) {
+      const displayName = [auth.user.name, auth.user.surname].filter(Boolean).join(' ')
+        || auth.user.username;
+      setUser({ name: displayName, email: '' });
+    }
   }, [auth.user, setUser]);
 
   const authed = auth.status === 'authenticated';
@@ -288,7 +292,7 @@ function App() {
         theme={theme}
         onCycleTheme={cycleTheme}
       />
-      <ToastTray toasts={toasts.toasts} onDismiss={toasts.dismiss} />
+      <ToastTray toasts={toastList} onDismiss={dismissToast} />
       <main className="main">
         {page === 'dashboard' && (
           <Dashboard
