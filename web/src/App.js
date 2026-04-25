@@ -125,6 +125,11 @@ function App() {
   }, [authed, fetchFilters, fetchCompanies]);
 
   useEffect(() => {
+    setSelectedJob(null);
+    setTrackedOpen(null);
+  }, [page]);
+
+  useEffect(() => {
     const timer = setTimeout(() => setSearchDebounced(search), 200);
     return () => clearTimeout(timer);
   }, [search]);
