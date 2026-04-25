@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import JobSearch from './components/JobSearch';
 import FilterBar from './components/FilterBar';
 import JobTable from './components/JobTable';
@@ -22,9 +22,32 @@ function jobRowToTracked(job) {
     id: String(job.job_id),
     title: job.job_title,
     company: job.company_name || '',
+    company_id: job.company_id,
     location: [job.workplace_city, job.workplace_state].filter(Boolean).join(', '),
     source: job.source || '',
     ago: 'agora',
+    job_url: job.job_url,
+    workplace_city: job.workplace_city,
+    workplace_state: job.workplace_state,
+    workplace_type: job.workplace_type,
+    job_type: job.job_type,
+    job_department: job.job_department,
+  };
+}
+
+function trackedToSelectedJob(t) {
+  return {
+    job_id: t.id,
+    job_title: t.title,
+    company_name: t.company,
+    company_id: t.company_id,
+    source: t.source,
+    job_url: t.job_url,
+    workplace_city: t.workplace_city,
+    workplace_state: t.workplace_state,
+    workplace_type: t.workplace_type,
+    job_type: t.job_type,
+    job_department: t.job_department,
   };
 }
 
@@ -62,6 +85,7 @@ function App() {
 
   const [trackedOpen, setTrackedOpen] = useState(null);
   const [browseVisited, setBrowseVisited] = useState(false);
+  const trackedFetchSeq = useRef(0);
 
   const fetchFilters = useCallback(async () => {
     try {
@@ -197,20 +221,27 @@ function App() {
   }, [isTracked, removeJob, addJob]);
   const isJobSaved = useCallback((id) => isTracked(String(id)), [isTracked]);
 
-  const openTracked = (job) => setTrackedOpen(job);
+  const openTrackedJobDetail = useCallback(async (trackedJob) => {
+    setTrackedOpen(null);
+    const seq = ++trackedFetchSeq.current;
+    setSelectedJob(trackedToSelectedJob(trackedJob));
+    try {
+      const res = await fetch(`${API_URL}/jobs/${trackedJob.id}`);
+      if (!res.ok) return;
+      const fresh = await res.json();
+      if (seq === trackedFetchSeq.current) setSelectedJob(fresh);
+    } catch {
+      // keep the synthesized fallback
+    }
+  }, []);
+  const openTrackerNotes = useCallback((job) => {
+    const tj = trackedJobs.find((t) => t.id === String(job.job_id));
+    if (tj) setTrackedOpen(tj);
+  }, [trackedJobs]);
   const advanceTracked = (job) => {
     const next = STAGE_NEXT[job.stage];
     if (next && next !== job.stage) updateStage(job.id, next);
     setTrackedOpen(null);
-  };
-  const openSearchDetailFromTracked = (trackedJob) => {
-    setTrackedOpen(null);
-    setSelectedJob({
-      job_id: trackedJob.id,
-      job_title: trackedJob.title,
-      company_name: trackedJob.company,
-      source: trackedJob.source,
-    });
   };
   const trackedFresh = trackedOpen ? trackedJobs.find((j) => j.id === trackedOpen.id) || null : null;
 
@@ -242,7 +273,7 @@ function App() {
           <Dashboard
             trackedJobs={trackedJobs}
             user={user}
-            onOpen={openTracked}
+            onOpen={openTrackedJobDetail}
             onGoBrowse={() => setPage('browse')}
           />
         )}
@@ -328,7 +359,7 @@ function App() {
         {page === 'saved' && (
           <SavedJobs
             trackedJobs={trackedJobs}
-            onOpen={openTracked}
+            onOpen={openTrackedJobDetail}
             onApply={(j) => updateStage(j.id, 'aplicada')}
             onRemove={(j) => removeJob(j.id)}
           />
@@ -337,7 +368,7 @@ function App() {
         {page === 'pipeline' && (
           <Pipeline
             trackedJobs={trackedJobs}
-            onOpen={openTracked}
+            onOpen={openTrackedJobDetail}
             onMove={updateStage}
           />
         )}
@@ -358,6 +389,7 @@ function App() {
           onClose={() => { setSelectedJob(null); setJobDetail(null); setDetailError(null); }}
           onToggleSave={handleToggleSave}
           isSaved={isJobSaved(selectedJob.job_id)}
+          onOpenTrackerNotes={openTrackerNotes}
         />
       )}
 
@@ -366,7 +398,6 @@ function App() {
         onClose={() => setTrackedOpen(null)}
         onAdvance={advanceTracked}
         onNotes={updateNotes}
-        onOpenSearchDetail={openSearchDetailFromTracked}
       />
     </div>
   );

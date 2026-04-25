@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { STAGE_META, STAGE_NEXT } from '../constants/stages';
 import useModalA11y from '../hooks/useModalA11y';
 
-function TrackedJobModal({ job, onClose, onAdvance, onNotes, onOpenSearchDetail }) {
+function TrackedJobModal({ job, onClose, onAdvance, onNotes }) {
   const { closeBtnRef, dialogProps } = useModalA11y({
     isOpen: !!job,
     onClose,
@@ -37,16 +37,13 @@ function TrackedJobModal({ job, onClose, onAdvance, onNotes, onOpenSearchDetail 
               defaultValue={job.notes || ''}
               onBlur={(e) => onNotes(job.id, e.target.value)}
             />
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-              {canAdvance && (
+            {canAdvance && (
+              <div style={{ marginTop: '1rem' }}>
                 <button type="button" className="btn btn-primary" onClick={() => onAdvance(job)}>
                   Avançar para {STAGE_META[STAGE_NEXT[job.stage]].label} →
                 </button>
-              )}
-              <button type="button" className="btn btn-ghost" onClick={() => onOpenSearchDetail(job)}>
-                Ver detalhes da vaga
-              </button>
-            </div>
+              </div>
+            )}
           </div>
           <div>
             <h4 className="tracker-section-h">Linha do tempo</h4>
@@ -83,7 +80,6 @@ TrackedJobModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   onAdvance: PropTypes.func.isRequired,
   onNotes: PropTypes.func.isRequired,
-  onOpenSearchDetail: PropTypes.func.isRequired,
 };
 
 TrackedJobModal.defaultProps = {
