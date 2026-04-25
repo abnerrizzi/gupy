@@ -12,6 +12,7 @@ import Settings from './components/Settings';
 import TrackedJobModal from './components/TrackedJobModal';
 import useTrackedJobs from './hooks/useTrackedJobs';
 import useUser from './hooks/useUser';
+import useAuth from './hooks/useAuth';
 import { STAGE_NEXT } from './constants/stages';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -52,10 +53,15 @@ function trackedToSelectedJob(t) {
 }
 
 function App() {
+  const auth = useAuth();
   const { user, setUser } = useUser();
   const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } = useTrackedJobs();
 
-  const [authed, setAuthed] = useState(() => localStorage.getItem('jh_authed') === '1');
+  useEffect(() => {
+    if (auth.user) setUser({ name: auth.user.username, email: '' });
+  }, [auth.user, setUser]);
+
+  const authed = auth.status === 'authenticated';
   const [page, setPage] = useState('dashboard');
 
   const [jobs, setJobs] = useState([]);
@@ -245,18 +251,17 @@ function App() {
   };
   const trackedFresh = trackedOpen ? trackedJobs.find((j) => j.id === trackedOpen.id) || null : null;
 
-  const handleEnter = ({ name }) => {
-    setUser({ name });
-    localStorage.setItem('jh_authed', '1');
-    setAuthed(true);
-  };
-  const handleLogout = () => {
-    localStorage.removeItem('jh_authed');
+  const handleLogout = async () => {
+    await auth.logout();
     setUser({ name: '', email: '' });
-    setAuthed(false);
   };
 
-  if (!authed) return <Login initialName={user.name} onEnter={handleEnter} />;
+  if (auth.status === 'loading') {
+    return <div className="login-shell"><div className="login-card">Carregando…</div></div>;
+  }
+  if (!authed) {
+    return <Login onLogin={auth.login} onRegister={auth.register} />;
+  }
 
   const counts = {
     saved: trackedJobs.filter((j) => j.stage === 'salva').length,
