@@ -7,7 +7,7 @@ export default function useAuth() {
 
   const refresh = useCallback(async () => {
     try {
-      const data = await fetchJSON('/api/auth/me');
+      const data = await fetchJSON('/auth/me');
       setUser(data.user);
       setStatus('authenticated');
     } catch (err) {
@@ -23,7 +23,7 @@ export default function useAuth() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const login = useCallback(async (username, password) => {
-    const data = await fetchJSON('/api/auth/login', {
+    const data = await fetchJSON('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
@@ -33,7 +33,7 @@ export default function useAuth() {
   }, []);
 
   const register = useCallback(async (username, password) => {
-    const data = await fetchJSON('/api/auth/register', {
+    const data = await fetchJSON('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
@@ -44,7 +44,7 @@ export default function useAuth() {
 
   const logout = useCallback(async () => {
     try {
-      await fetchJSON('/api/auth/logout', { method: 'POST' });
+      await fetchJSON('/auth/logout', { method: 'POST' });
     } catch {
       // ignore — local state is what matters for the SPA
     }

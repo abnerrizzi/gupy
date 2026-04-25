@@ -52,7 +52,7 @@ export default function useTrackedJobs(authStatus, onError) {
     let cancelled = false;
     (async () => {
       try {
-        const data = await fetchJSON('/api/me/tracked');
+        const data = await fetchJSON('/me/tracked');
         if (cancelled) return;
         setTrackedJobs((data?.tracked || []).map(trackedToLocal));
         setLoaded(true);
@@ -75,7 +75,7 @@ export default function useTrackedJobs(authStatus, onError) {
     };
     setTrackedJobs((prev) => [...prev, optimistic]);
     try {
-      const data = await fetchJSON('/api/me/tracked', {
+      const data = await fetchJSON('/me/tracked', {
         method: 'POST',
         body: JSON.stringify(localToServer(job)),
       });
@@ -91,7 +91,7 @@ export default function useTrackedJobs(authStatus, onError) {
     const prevSnapshot = trackedJobs;
     setTrackedJobs((prev) => prev.map((j) => (j.id === id ? { ...j, stage } : j)));
     try {
-      const data = await fetchJSON(`/api/me/tracked/${encodeURIComponent(id)}`, {
+      const data = await fetchJSON(`/me/tracked/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify({ stage }),
       });
@@ -107,7 +107,7 @@ export default function useTrackedJobs(authStatus, onError) {
     const prevSnapshot = trackedJobs;
     setTrackedJobs((prev) => prev.map((j) => (j.id === id ? { ...j, notes } : j)));
     try {
-      const data = await fetchJSON(`/api/me/tracked/${encodeURIComponent(id)}`, {
+      const data = await fetchJSON(`/me/tracked/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify({ notes }),
       });
@@ -123,7 +123,7 @@ export default function useTrackedJobs(authStatus, onError) {
     const prevSnapshot = trackedJobs;
     setTrackedJobs((prev) => prev.filter((j) => j.id !== id));
     try {
-      await fetchJSON(`/api/me/tracked/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      await fetchJSON(`/me/tracked/${encodeURIComponent(id)}`, { method: 'DELETE' });
     } catch (err) {
       setTrackedJobs(prevSnapshot);
       reportError(`Não foi possível remover: ${err.message}`);
