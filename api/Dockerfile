@@ -9,6 +9,7 @@ COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY api/app.py .
+COPY api/auth.py .
 COPY api/fetchers ./fetchers
 COPY api/entrypoint.sh /entrypoint.sh
 
