@@ -393,6 +393,169 @@ def auth_me():
     return jsonify({'user': _user_payload(row)})
 
 
+# ── Tracker (saved jobs) ──────────────────────────────────────────────────
+
+STAGE_ORDER = ['salva', 'aplicada', 'entrev', 'prop', 'encer']
+STAGE_LABELS = {
+    'salva': 'Salva',
+    'aplicada': 'Aplicada',
+    'entrev': 'Entrevista',
+    'prop': 'Proposta',
+    'encer': 'Encerrada',
+}
+
+_TRACKER_FIELDS = (
+    'job_id', 'source', 'title', 'company_name', 'company_id', 'location',
+    'job_url', 'job_type', 'job_department', 'workplace_type',
+    'workplace_city', 'workplace_state', 'stage', 'notes', 'events',
+    'created_at', 'updated_at',
+)
+
+
+def _tracker_row_to_dict(row) -> dict:
+    out = {k: row[k] for k in _TRACKER_FIELDS}
+    try:
+        out['events'] = json.loads(out['events']) if out['events'] else []
+    except (TypeError, ValueError):
+        out['events'] = []
+    return out
+
+
+def _today_label() -> str:
+    from datetime import datetime
+    months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+    now = datetime.now()
+    return f'{now.day:02d} {months[now.month - 1]}'
+
+
+def _now_iso() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+
+
+@app.route('/api/me/tracked', methods=['GET'])
+@login_required
+def tracker_list():
+    db = get_db()
+    rows = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? ORDER BY created_at",
+        (current_user_id(),),
+    ).fetchall()
+    return jsonify({'tracked': [_tracker_row_to_dict(r) for r in rows]})
+
+
+@app.route('/api/me/tracked', methods=['POST'])
+@login_required
+def tracker_add():
+    body = request.get_json(silent=True) or {}
+    job_id = (body.get('job_id') or body.get('id') or '').strip()
+    source = (body.get('source') or '').strip()
+    title = (body.get('title') or '').strip()
+    if not job_id or not source or not title:
+        return jsonify({'error': 'job_id, source e title são obrigatórios'}), 400
+
+    user_id = current_user_id()
+    db = get_db()
+    existing = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? AND job_id = ?",
+        (user_id, job_id),
+    ).fetchone()
+    if existing:
+        return jsonify({'tracked': _tracker_row_to_dict(existing)})
+
+    events = json.dumps([{'when': _today_label(), 'what': 'Vaga salva'}])
+    now = _now_iso()
+    db.execute(
+        """INSERT INTO tracked_jobs
+           (user_id, job_id, source, title, company_name, company_id, location,
+            job_url, job_type, job_department, workplace_type,
+            workplace_city, workplace_state, stage, notes, events, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'salva', '', ?, ?, ?)""",
+        (
+            user_id, job_id, source, title,
+            body.get('company_name'), body.get('company_id'), body.get('location'),
+            body.get('job_url'), body.get('job_type'), body.get('job_department'),
+            body.get('workplace_type'), body.get('workplace_city'), body.get('workplace_state'),
+            events, now, now,
+        ),
+    )
+    db.commit()
+    row = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? AND job_id = ?",
+        (user_id, job_id),
+    ).fetchone()
+    return jsonify({'tracked': _tracker_row_to_dict(row)}), 201
+
+
+@app.route('/api/me/tracked/<job_id>', methods=['PATCH'])
+@login_required
+def tracker_update(job_id):
+    body = request.get_json(silent=True) or {}
+    user_id = current_user_id()
+    db = get_db()
+    row = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? AND job_id = ?",
+        (user_id, job_id),
+    ).fetchone()
+    if not row:
+        return jsonify({'error': 'not found'}), 404
+
+    sets = []
+    params = []
+    new_stage = body.get('stage')
+    new_notes = body.get('notes')
+
+    if new_stage is not None:
+        if new_stage not in STAGE_ORDER:
+            return jsonify({'error': f'stage inválido (use um de {STAGE_ORDER})'}), 400
+        if new_stage != row['stage']:
+            try:
+                events = json.loads(row['events']) if row['events'] else []
+            except (TypeError, ValueError):
+                events = []
+            events.append({'when': _today_label(), 'what': f'Movida para {STAGE_LABELS[new_stage]}'})
+            sets.append('stage = ?')
+            params.append(new_stage)
+            sets.append('events = ?')
+            params.append(json.dumps(events))
+
+    if new_notes is not None:
+        sets.append('notes = ?')
+        params.append(str(new_notes))
+
+    if not sets:
+        return jsonify({'tracked': _tracker_row_to_dict(row)})
+
+    sets.append('updated_at = ?')
+    params.append(_now_iso())
+    params.extend([user_id, job_id])
+    db.execute(
+        f"UPDATE tracked_jobs SET {', '.join(sets)} WHERE user_id = ? AND job_id = ?",
+        params,
+    )
+    db.commit()
+    row = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? AND job_id = ?",
+        (user_id, job_id),
+    ).fetchone()
+    return jsonify({'tracked': _tracker_row_to_dict(row)})
+
+
+@app.route('/api/me/tracked/<job_id>', methods=['DELETE'])
+@login_required
+def tracker_remove(job_id):
+    user_id = current_user_id()
+    db = get_db()
+    cur = db.execute(
+        'DELETE FROM tracked_jobs WHERE user_id = ? AND job_id = ?',
+        (user_id, job_id),
+    )
+    db.commit()
+    if cur.rowcount == 0:
+        return jsonify({'error': 'not found'}), 404
+    return ('', 204)
+
+
 def get_job_url(job, company):
     source = job.get('source')
     job_id = job.get('id')
