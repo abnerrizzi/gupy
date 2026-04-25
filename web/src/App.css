@@ -12,7 +12,7 @@
   border: 2px solid var(--border-color);
   border-radius: var(--radius);
   transition: all 0.2s;
-  background-color: white;
+  background-color: var(--jh-surface);
   box-shadow: var(--shadow-sm);
 }
 
@@ -35,7 +35,7 @@
   font-size: 0.875rem;
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
-  background-color: white;
+  background-color: var(--jh-surface);
   width: 180px;
   color: var(--text-main);
   cursor: pointer;
@@ -55,7 +55,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--danger);
-  background-color: white;
+  background-color: var(--jh-surface);
   border: 1px solid var(--danger);
   border-radius: 0.5rem;
   cursor: pointer;
@@ -85,7 +85,7 @@
 
 /* Table Styling */
 .job-table-container {
-  background-color: white;
+  background-color: var(--jh-surface);
   border-radius: var(--radius);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow);
@@ -98,7 +98,7 @@
 }
 
 .job-table th {
-  background-color: #f8fafc;
+  background-color: var(--jh-surface-2);
   padding: 1rem 1.5rem;
   text-align: left;
   font-size: 0.75rem;
@@ -122,7 +122,7 @@
 }
 
 .job-row:hover {
-  background-color: #f1f5f9;
+  background-color: var(--jh-surface-2);
 }
 
 .job-row td:first-child {
@@ -168,7 +168,7 @@
 }
 
 .tag-workplace-na {
-  background-color: #f1f5f9;
+  background-color: var(--jh-surface-2);
   color: #64748b;
 }
 
@@ -234,7 +234,7 @@
   gap: 0.9rem 1.25rem;
   padding: 1rem 1.1rem;
   margin-bottom: 1.5rem;
-  background: #f8fafc;
+  background: var(--jh-surface-2);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
 }
@@ -288,7 +288,7 @@
   margin-top: 1.5rem;
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
-  background: #f8fafc;
+  background: var(--jh-surface-2);
 }
 
 .json-details > summary {
@@ -360,7 +360,7 @@
   align-items: center;
   gap: 1.5rem;
   padding: 1.5rem;
-  background-color: #f8fafc;
+  background-color: var(--jh-surface-2);
   border-top: 1px solid var(--border-color);
 }
 
@@ -370,7 +370,7 @@
   font-weight: 600;
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
-  background-color: white;
+  background-color: var(--jh-surface);
   color: var(--text-main);
   cursor: pointer;
   transition: all 0.2s;
@@ -409,7 +409,7 @@
 }
 
 .job-details-modal {
-  background-color: white;
+  background-color: var(--jh-surface);
   border-radius: 1rem;
   max-width: 700px;
   width: 100%;
@@ -433,7 +433,7 @@
   height: 2rem;
   border-radius: 50%;
   border: none;
-  background: #f1f5f9;
+  background: var(--jh-surface-2);
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
@@ -497,7 +497,7 @@
   gap: 0.9rem 1.25rem;
   padding: 1rem 1.1rem;
   margin-bottom: 1.75rem;
-  background: #f8fafc;
+  background: var(--jh-surface-2);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
 }
@@ -569,7 +569,7 @@
 }
 
 .App-error button {
-  background: #fff;
+  background: var(--jh-surface);
   border: 1px solid var(--danger);
   color: var(--danger);
   padding: 0.4rem 0.75rem;
