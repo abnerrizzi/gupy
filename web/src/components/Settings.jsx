@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-function Settings({ user, setUser, onLogout }) {
+function Settings({ user, setUser }) {
   return (
     <>
       <div className="page-head">
@@ -28,9 +28,6 @@ function Settings({ user, setUser, onLogout }) {
             onChange={(e) => setUser({ email: e.target.value })}
           />
         </div>
-        <button type="button" className="btn btn-ghost" onClick={onLogout} style={{ marginTop: '0.5rem' }}>
-          Sair
-        </button>
       </div>
     </>
   );
@@ -42,7 +39,6 @@ Settings.propTypes = {
     email: PropTypes.string,
   }).isRequired,
   setUser: PropTypes.func.isRequired,
-  onLogout: PropTypes.func.isRequired,
 };
 
 export default Settings;

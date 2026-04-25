@@ -35,7 +35,7 @@ NavItem.defaultProps = {
   active: false,
 };
 
-function Sidebar({ page, setPage, counts, user }) {
+function Sidebar({ page, setPage, counts, user, onLogout }) {
   const initial = (user.name?.trim()?.[0] || '?').toUpperCase();
   return (
     <aside className="sidebar">
@@ -48,13 +48,23 @@ function Sidebar({ page, setPage, counts, user }) {
       <div className="nav-group-label">Minha jornada</div>
       <NavItem icon="♥" label="Salvas" count={counts.saved} active={page === 'saved'} onClick={() => setPage('saved')} />
       <NavItem icon="▦" label="Pipeline" count={counts.pipeline} active={page === 'pipeline'} onClick={() => setPage('pipeline')} />
-      <div className="nav-group-label">Conta</div>
-      <NavItem icon="⚙" label="Configurações" active={page === 'settings'} onClick={() => setPage('settings')} />
+
       <div className="sidebar-foot">
-        <div className="avatar">{initial}</div>
-        <div>
-          <div style={{ fontWeight: 600, color: 'var(--jh-fg)' }}>{user.name || 'Visitante'}</div>
-          <div>{user.email || ''}</div>
+        <div className="sidebar-foot-user">
+          <div className="avatar">{initial}</div>
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--jh-fg)' }}>{user.name || 'Visitante'}</div>
+            <div>{user.email || ''}</div>
+          </div>
+        </div>
+        <div className="sidebar-foot-actions">
+          <NavItem
+            icon="⚙"
+            label="Configurações"
+            active={page === 'settings'}
+            onClick={() => setPage('settings')}
+          />
+          <NavItem icon="⏻" label="Sair" onClick={onLogout} />
         </div>
       </div>
     </aside>
@@ -72,6 +82,7 @@ Sidebar.propTypes = {
     name: PropTypes.string,
     email: PropTypes.string,
   }).isRequired,
+  onLogout: PropTypes.func.isRequired,
 };
 
 export default Sidebar;

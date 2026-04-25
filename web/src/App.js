@@ -267,7 +267,7 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar page={page} setPage={setPage} counts={counts} user={user} />
+      <Sidebar page={page} setPage={setPage} counts={counts} user={user} onLogout={handleLogout} />
       <main className="main">
         {page === 'dashboard' && (
           <Dashboard
@@ -374,7 +374,7 @@ function App() {
         )}
 
         {page === 'settings' && (
-          <Settings user={user} setUser={setUser} onLogout={handleLogout} />
+          <Settings user={user} setUser={setUser} />
         )}
       </main>
 
