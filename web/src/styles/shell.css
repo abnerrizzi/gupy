@@ -39,11 +39,14 @@
 .nav-item .nav-count { background: #f1f5f9; color: var(--jh-fg-muted); font-size: 0.6875rem; font-weight: 600; padding: 1px 8px; border-radius: 9999px; }
 .nav-item.active .nav-count { background: #dbeafe; color: var(--jh-primary); }
 .sidebar-foot { margin-top: auto; padding-top: 0.75rem; border-top: 1px solid var(--jh-border); display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--jh-fg-muted); }
-.sidebar-foot-user { display: flex; align-items: center; gap: 8px; padding: 0.25rem 0.5rem 0.5rem; }
+.sidebar-foot-user { display: flex; align-items: center; gap: 8px; padding: 0.4rem 0.5rem; width: 100%; background: none; border: 1px solid transparent; border-radius: 0.5rem; cursor: pointer; font: inherit; color: inherit; text-align: left; transition: background-color 0.15s, border-color 0.15s; }
+.sidebar-foot-user:hover { background: #f1f5f9; }
+.sidebar-foot-user.is-open { background: #f1f5f9; border-color: var(--jh-border); }
 .sidebar-foot-user .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--jh-primary); color: #fff; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
-.sidebar-foot-user > div:nth-child(2) { min-width: 0; overflow: hidden; }
-.sidebar-foot-user > div:nth-child(2) > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sidebar-foot-actions { display: flex; flex-direction: column; gap: 0.25rem; }
+.sidebar-foot-user-text { min-width: 0; overflow: hidden; flex: 1 1 auto; }
+.sidebar-foot-user-text > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.75rem; }
+.sidebar-foot-caret { color: var(--jh-fg-subtle); font-size: 0.75rem; flex: 0 0 auto; }
+.sidebar-foot-actions { display: flex; flex-direction: column; gap: 0.25rem; padding-top: 0.25rem; border-top: 1px dashed var(--jh-border); }
 
 .main { padding: 2rem 2.5rem; }
 .page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; }

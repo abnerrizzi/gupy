@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 
 function NavItem({ icon, label, count, active, onClick }) {
@@ -37,6 +37,23 @@ NavItem.defaultProps = {
 
 function Sidebar({ page, setPage, counts, user, onLogout }) {
   const initial = (user.name?.trim()?.[0] || '?').toUpperCase();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const footRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onDocClick = (e) => {
+      if (footRef.current && !footRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -49,23 +66,36 @@ function Sidebar({ page, setPage, counts, user, onLogout }) {
       <NavItem icon="♥" label="Salvas" count={counts.saved} active={page === 'saved'} onClick={() => setPage('saved')} />
       <NavItem icon="▦" label="Pipeline" count={counts.pipeline} active={page === 'pipeline'} onClick={() => setPage('pipeline')} />
 
-      <div className="sidebar-foot">
-        <div className="sidebar-foot-user">
+      <div className="sidebar-foot" ref={footRef}>
+        <button
+          type="button"
+          className={'sidebar-foot-user' + (menuOpen ? ' is-open' : '')}
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          onClick={() => setMenuOpen((v) => !v)}
+        >
           <div className="avatar">{initial}</div>
-          <div>
+          <div className="sidebar-foot-user-text">
             <div style={{ fontWeight: 600, color: 'var(--jh-fg)' }}>{user.name || 'Visitante'}</div>
             <div>{user.email || ''}</div>
           </div>
-        </div>
-        <div className="sidebar-foot-actions">
-          <NavItem
-            icon="⚙"
-            label="Configurações"
-            active={page === 'settings'}
-            onClick={() => setPage('settings')}
-          />
-          <NavItem icon="⏻" label="Sair" onClick={onLogout} />
-        </div>
+          <span className="sidebar-foot-caret" aria-hidden="true">{menuOpen ? '▾' : '▸'}</span>
+        </button>
+        {menuOpen && (
+          <div className="sidebar-foot-actions" role="menu">
+            <NavItem
+              icon="⚙"
+              label="Configurações"
+              active={page === 'settings'}
+              onClick={() => { setMenuOpen(false); setPage('settings'); }}
+            />
+            <NavItem
+              icon="⏻"
+              label="Sair"
+              onClick={() => { setMenuOpen(false); onLogout(); }}
+            />
+          </div>
+        )}
       </div>
     </aside>
   );
