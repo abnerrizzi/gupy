@@ -10,8 +10,12 @@ import SavedJobs from './components/SavedJobs';
 import Pipeline from './components/Pipeline';
 import Settings from './components/Settings';
 import TrackedJobModal from './components/TrackedJobModal';
+import ToastTray from './components/ToastTray';
 import useTrackedJobs from './hooks/useTrackedJobs';
 import useUser from './hooks/useUser';
+import useAuth from './hooks/useAuth';
+import useToasts from './hooks/useToasts';
+import useTheme from './hooks/useTheme';
 import { STAGE_NEXT } from './constants/stages';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -52,10 +56,23 @@ function trackedToSelectedJob(t) {
 }
 
 function App() {
+  const auth = useAuth();
   const { user, setUser } = useUser();
-  const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } = useTrackedJobs();
+  const { theme, toggle: toggleTheme } = useTheme();
+  const { toasts: toastList, push: pushToast, dismiss: dismissToast } = useToasts();
+  const pushError = useCallback((message) => pushToast({ type: 'error', message }), [pushToast]);
+  const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } =
+    useTrackedJobs(auth.status, pushError);
 
-  const [authed, setAuthed] = useState(() => localStorage.getItem('jh_authed') === '1');
+  useEffect(() => {
+    if (auth.user) {
+      const displayName = [auth.user.name, auth.user.surname].filter(Boolean).join(' ')
+        || auth.user.username;
+      setUser({ name: displayName, email: '' });
+    }
+  }, [auth.user, setUser]);
+
+  const authed = auth.status === 'authenticated';
   const [page, setPage] = useState('dashboard');
 
   const [jobs, setJobs] = useState([]);
@@ -245,18 +262,17 @@ function App() {
   };
   const trackedFresh = trackedOpen ? trackedJobs.find((j) => j.id === trackedOpen.id) || null : null;
 
-  const handleEnter = ({ name }) => {
-    setUser({ name });
-    localStorage.setItem('jh_authed', '1');
-    setAuthed(true);
-  };
-  const handleLogout = () => {
-    localStorage.removeItem('jh_authed');
+  const handleLogout = async () => {
+    await auth.logout();
     setUser({ name: '', email: '' });
-    setAuthed(false);
   };
 
-  if (!authed) return <Login initialName={user.name} onEnter={handleEnter} />;
+  if (auth.status === 'loading') {
+    return <div className="login-shell"><div className="login-card">Carregando…</div></div>;
+  }
+  if (!authed) {
+    return <Login onLogin={auth.login} onRegister={auth.register} />;
+  }
 
   const counts = {
     saved: trackedJobs.filter((j) => j.stage === 'salva').length,
@@ -267,7 +283,16 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar page={page} setPage={setPage} counts={counts} user={user} onLogout={handleLogout} />
+      <Sidebar
+        page={page}
+        setPage={setPage}
+        counts={counts}
+        user={user}
+        onLogout={handleLogout}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+      <ToastTray toasts={toastList} onDismiss={dismissToast} />
       <main className="main">
         {page === 'dashboard' && (
           <Dashboard
@@ -374,7 +399,7 @@ function App() {
         )}
 
         {page === 'settings' && (
-          <Settings user={user} setUser={setUser} />
+          <Settings user={auth.user} />
         )}
       </main>
 

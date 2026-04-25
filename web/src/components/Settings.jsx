@@ -1,33 +1,31 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-function Settings({ user, setUser }) {
+function Settings({ user }) {
   return (
     <>
       <div className="page-head">
         <div>
           <h2>Configurações</h2>
-          <p>Suas preferências são salvas localmente.</p>
+          <p>Conta logada e preferências do dispositivo.</p>
         </div>
       </div>
       <div className="card card-pad" style={{ maxWidth: 600 }}>
         <div className="field">
-          <label htmlFor="settings-name">Nome</label>
-          <input
-            id="settings-name"
-            value={user.name}
-            onChange={(e) => setUser({ name: e.target.value })}
-          />
+          <label>Usuário</label>
+          <input value={user?.username || ''} readOnly />
         </div>
         <div className="field">
-          <label htmlFor="settings-email">Email</label>
-          <input
-            id="settings-email"
-            type="email"
-            value={user.email}
-            onChange={(e) => setUser({ email: e.target.value })}
-          />
+          <label>Nome</label>
+          <input value={user?.name || ''} readOnly />
         </div>
+        <div className="field">
+          <label>Sobrenome</label>
+          <input value={user?.surname || ''} readOnly />
+        </div>
+        <p style={{ fontSize: '0.75rem', color: 'var(--jh-fg-muted)', margin: '0.5rem 0 0' }}>
+          Mais opções (alterar senha, edição de dados) em breve.
+        </p>
       </div>
     </>
   );
@@ -35,10 +33,15 @@ function Settings({ user, setUser }) {
 
 Settings.propTypes = {
   user: PropTypes.shape({
+    id: PropTypes.number,
+    username: PropTypes.string,
     name: PropTypes.string,
-    email: PropTypes.string,
-  }).isRequired,
-  setUser: PropTypes.func.isRequired,
+    surname: PropTypes.string,
+  }),
+};
+
+Settings.defaultProps = {
+  user: null,
 };
 
 export default Settings;

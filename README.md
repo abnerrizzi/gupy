@@ -82,6 +82,8 @@ Customize behavior using environment variables in `docker-compose.yml` or a `.en
 | `LINKEDIN_KEYWORDS` | `Software Engineer` | LinkedIn search keywords |
 | `LINKEDIN_LOCATION` | `Brazil` | LinkedIn search location |
 | `JOBHUBMINE_DATABASE` | `/app/out/jobhubmine.db` | Container path to the SQLite database |
+| `SECRET_KEY` | `dev-only-insecure-secret` | **Required in prod**. Signs the auth cookie session. Generate with `python -c 'import secrets; print(secrets.token_urlsafe(48))'`. |
+| `SESSION_COOKIE_SECURE` | `false` | Set `true` when serving the SPA over HTTPS so the session cookie is `Secure`-only. |
 
 ## 🛠️ Development
 

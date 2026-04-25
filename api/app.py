@@ -4,11 +4,33 @@ import sqlite3
 import json
 import logging
 import time
-from flask import Flask, request, jsonify, g
+from datetime import timedelta
+
+from flask import Flask, request, jsonify, g, session
 
 from fetchers import FETCHERS, FetchError
+from auth import (
+    current_user_id,
+    hash_password,
+    is_valid_password,
+    is_valid_username,
+    login_required,
+    verify_password,
+)
 
 app = Flask(__name__)
+
+_default_secret = 'dev-only-insecure-secret'
+app.secret_key = os.environ.get('SECRET_KEY') or _default_secret
+if app.secret_key == _default_secret and os.environ.get('FLASK_ENV') == 'production':
+    raise RuntimeError('SECRET_KEY env var is required in production')
+
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = (
+    os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
+)
+app.permanent_session_lifetime = timedelta(days=30)
 
 logging.basicConfig(
     level=os.environ.get('LOG_LEVEL', 'INFO'),
@@ -77,6 +99,63 @@ def _ensure_detail_schema():
 
 
 _ensure_detail_schema()
+
+
+def _ensure_app_schema():
+    """Create app-state tables (users, tracked_jobs) if missing. Mirrors
+    sqlite-init.sql so the API works even when the file hasn't been re-applied."""
+    try:
+        con = sqlite3.connect(DATABASE)
+    except sqlite3.OperationalError:
+        return
+    try:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                name TEXT,
+                surname TEXT,
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            )
+        """)
+        con.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        existing_user_cols = {r[1] for r in con.execute("PRAGMA table_info(users)").fetchall()}
+        for col in ('name', 'surname'):
+            if col not in existing_user_cols:
+                con.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS tracked_jobs (
+                user_id        INTEGER NOT NULL,
+                job_id         TEXT NOT NULL,
+                source         TEXT NOT NULL,
+                title          TEXT NOT NULL,
+                company_name   TEXT,
+                company_id     TEXT,
+                location       TEXT,
+                job_url        TEXT,
+                job_type       TEXT,
+                job_department TEXT,
+                workplace_type TEXT,
+                workplace_city TEXT,
+                workplace_state TEXT,
+                stage          TEXT NOT NULL DEFAULT 'salva',
+                notes          TEXT NOT NULL DEFAULT '',
+                events         TEXT NOT NULL DEFAULT '[]',
+                created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                PRIMARY KEY (user_id, job_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+        con.execute("CREATE INDEX IF NOT EXISTS idx_tracked_user ON tracked_jobs(user_id)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_tracked_user_stage ON tracked_jobs(user_id, stage)")
+        con.commit()
+    finally:
+        con.close()
+
+
+_ensure_app_schema()
 
 
 def get_db():
@@ -237,6 +316,262 @@ def safe_int(val, default, min_val=None, max_val=None):
 @app.route('/api/health')
 def health():
     return jsonify({'status': 'ok'})
+
+
+def _user_payload(row) -> dict:
+    return {
+        'id': row['id'],
+        'username': row['username'],
+        'name': row['name'] if 'name' in row.keys() else None,
+        'surname': row['surname'] if 'surname' in row.keys() else None,
+    }
+
+
+def _login_session(user_id: int) -> None:
+    session.clear()
+    session['user_id'] = user_id
+    session.permanent = True
+
+
+def _generic_login_error():
+    return jsonify({'error': 'Usuário ou senha inválidos'}), 401
+
+
+@app.route('/api/auth/register', methods=['POST'])
+def auth_register():
+    body = request.get_json(silent=True) or {}
+    username = (body.get('username') or '').strip()
+    password = body.get('password') or ''
+    name = (body.get('name') or '').strip()
+    surname = (body.get('surname') or '').strip()
+
+    ok, reason = is_valid_username(username)
+    if not ok:
+        return jsonify({'error': reason}), 400
+    ok, reason = is_valid_password(password)
+    if not ok:
+        return jsonify({'error': reason}), 400
+    if len(name) > 64 or len(surname) > 64:
+        return jsonify({'error': 'Nome/sobrenome muito longos (máx 64 caracteres)'}), 400
+
+    db = get_db()
+    try:
+        cur = db.execute(
+            'INSERT INTO users (username, password_hash, name, surname) VALUES (?, ?, ?, ?)',
+            (username, hash_password(password), name or None, surname or None),
+        )
+        db.commit()
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'Esse usuário já existe'}), 409
+
+    user_id = cur.lastrowid
+    _login_session(user_id)
+    return jsonify({'user': {
+        'id': user_id, 'username': username,
+        'name': name or None, 'surname': surname or None,
+    }}), 201
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    body = request.get_json(silent=True) or {}
+    username = (body.get('username') or '').strip()
+    password = body.get('password') or ''
+    if not username or not password:
+        return _generic_login_error()
+
+    db = get_db()
+    row = db.execute(
+        'SELECT id, username, password_hash, name, surname FROM users WHERE username = ?',
+        (username,),
+    ).fetchone()
+    if not row or not verify_password(password, row['password_hash']):
+        return _generic_login_error()
+
+    _login_session(row['id'])
+    return jsonify({'user': _user_payload(row)})
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def auth_logout():
+    session.clear()
+    return ('', 204)
+
+
+@app.route('/api/auth/me')
+def auth_me():
+    uid = current_user_id()
+    if uid is None:
+        return jsonify({'error': 'auth required'}), 401
+    db = get_db()
+    row = db.execute('SELECT id, username, name, surname FROM users WHERE id = ?', (uid,)).fetchone()
+    if not row:
+        session.clear()
+        return jsonify({'error': 'auth required'}), 401
+    return jsonify({'user': _user_payload(row)})
+
+
+# ── Tracker (saved jobs) ──────────────────────────────────────────────────
+
+STAGE_ORDER = ['salva', 'aplicada', 'entrev', 'prop', 'encer']
+STAGE_LABELS = {
+    'salva': 'Salva',
+    'aplicada': 'Aplicada',
+    'entrev': 'Entrevista',
+    'prop': 'Proposta',
+    'encer': 'Encerrada',
+}
+
+_TRACKER_FIELDS = (
+    'job_id', 'source', 'title', 'company_name', 'company_id', 'location',
+    'job_url', 'job_type', 'job_department', 'workplace_type',
+    'workplace_city', 'workplace_state', 'stage', 'notes', 'events',
+    'created_at', 'updated_at',
+)
+
+
+def _tracker_row_to_dict(row) -> dict:
+    out = {k: row[k] for k in _TRACKER_FIELDS}
+    try:
+        out['events'] = json.loads(out['events']) if out['events'] else []
+    except (TypeError, ValueError):
+        out['events'] = []
+    return out
+
+
+def _today_label() -> str:
+    from datetime import datetime
+    months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+    now = datetime.now()
+    return f'{now.day:02d} {months[now.month - 1]}'
+
+
+def _now_iso() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+
+
+@app.route('/api/me/tracked', methods=['GET'])
+@login_required
+def tracker_list():
+    db = get_db()
+    rows = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? ORDER BY created_at",
+        (current_user_id(),),
+    ).fetchall()
+    return jsonify({'tracked': [_tracker_row_to_dict(r) for r in rows]})
+
+
+@app.route('/api/me/tracked', methods=['POST'])
+@login_required
+def tracker_add():
+    body = request.get_json(silent=True) or {}
+    job_id = (body.get('job_id') or body.get('id') or '').strip()
+    source = (body.get('source') or '').strip()
+    title = (body.get('title') or '').strip()
+    if not job_id or not source or not title:
+        return jsonify({'error': 'job_id, source e title são obrigatórios'}), 400
+
+    user_id = current_user_id()
+    db = get_db()
+    existing = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? AND job_id = ?",
+        (user_id, job_id),
+    ).fetchone()
+    if existing:
+        return jsonify({'tracked': _tracker_row_to_dict(existing)})
+
+    events = json.dumps([{'when': _today_label(), 'what': 'Vaga salva'}])
+    now = _now_iso()
+    db.execute(
+        """INSERT INTO tracked_jobs
+           (user_id, job_id, source, title, company_name, company_id, location,
+            job_url, job_type, job_department, workplace_type,
+            workplace_city, workplace_state, stage, notes, events, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'salva', '', ?, ?, ?)""",
+        (
+            user_id, job_id, source, title,
+            body.get('company_name'), body.get('company_id'), body.get('location'),
+            body.get('job_url'), body.get('job_type'), body.get('job_department'),
+            body.get('workplace_type'), body.get('workplace_city'), body.get('workplace_state'),
+            events, now, now,
+        ),
+    )
+    db.commit()
+    row = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? AND job_id = ?",
+        (user_id, job_id),
+    ).fetchone()
+    return jsonify({'tracked': _tracker_row_to_dict(row)}), 201
+
+
+@app.route('/api/me/tracked/<job_id>', methods=['PATCH'])
+@login_required
+def tracker_update(job_id):
+    body = request.get_json(silent=True) or {}
+    user_id = current_user_id()
+    db = get_db()
+    row = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? AND job_id = ?",
+        (user_id, job_id),
+    ).fetchone()
+    if not row:
+        return jsonify({'error': 'not found'}), 404
+
+    sets = []
+    params = []
+    new_stage = body.get('stage')
+    new_notes = body.get('notes')
+
+    if new_stage is not None:
+        if new_stage not in STAGE_ORDER:
+            return jsonify({'error': f'stage inválido (use um de {STAGE_ORDER})'}), 400
+        if new_stage != row['stage']:
+            try:
+                events = json.loads(row['events']) if row['events'] else []
+            except (TypeError, ValueError):
+                events = []
+            events.append({'when': _today_label(), 'what': f'Movida para {STAGE_LABELS[new_stage]}'})
+            sets.append('stage = ?')
+            params.append(new_stage)
+            sets.append('events = ?')
+            params.append(json.dumps(events))
+
+    if new_notes is not None:
+        sets.append('notes = ?')
+        params.append(str(new_notes))
+
+    if not sets:
+        return jsonify({'tracked': _tracker_row_to_dict(row)})
+
+    sets.append('updated_at = ?')
+    params.append(_now_iso())
+    params.extend([user_id, job_id])
+    db.execute(
+        f"UPDATE tracked_jobs SET {', '.join(sets)} WHERE user_id = ? AND job_id = ?",
+        params,
+    )
+    db.commit()
+    row = db.execute(
+        f"SELECT {','.join(_TRACKER_FIELDS)} FROM tracked_jobs WHERE user_id = ? AND job_id = ?",
+        (user_id, job_id),
+    ).fetchone()
+    return jsonify({'tracked': _tracker_row_to_dict(row)})
+
+
+@app.route('/api/me/tracked/<job_id>', methods=['DELETE'])
+@login_required
+def tracker_remove(job_id):
+    user_id = current_user_id()
+    db = get_db()
+    cur = db.execute(
+        'DELETE FROM tracked_jobs WHERE user_id = ? AND job_id = ?',
+        (user_id, job_id),
+    )
+    db.commit()
+    if cur.rowcount == 0:
+        return jsonify({'error': 'not found'}), 404
+    return ('', 204)
 
 
 def get_job_url(job, company):
