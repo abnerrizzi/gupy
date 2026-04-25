@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 
-function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrder, onJobClick, onPageChange, onSort }) {
+function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrder, onJobClick, onPageChange, onSort, onToggleSave, isJobSaved }) {
   if (loading && jobs.length === 0) {
     return <div className="loading">Carregando vagas...</div>;
   }
@@ -35,6 +35,7 @@ function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrd
             <th onClick={() => onSort('source')} style={{ cursor: 'pointer' }}>
               Fonte{renderSortIcon('source')}
             </th>
+            <th aria-label="Salvar"></th>
             <th aria-label="Detail"></th>
           </tr>
         </thead>
@@ -58,6 +59,23 @@ function JobTable({ jobs, companies, loading, page, totalPages, sortKey, sortOrd
                 <span className={`tag tag-source-${(job.source || 'gupy').toLowerCase()}`}>
                   {(job.source || 'Gupy').toUpperCase()}
                 </span>
+              </td>
+              <td>
+                {(() => {
+                  const saved = isJobSaved(job.job_id);
+                  return (
+                    <button
+                      type="button"
+                      className={'icon-btn' + (saved ? ' is-saved' : '')}
+                      title={saved ? 'Remover dos salvos' : 'Salvar vaga'}
+                      aria-label={saved ? 'Remover dos salvos' : 'Salvar vaga'}
+                      aria-pressed={saved}
+                      onClick={(e) => { e.stopPropagation(); onToggleSave(job); }}
+                    >
+                      ♥
+                    </button>
+                  );
+                })()}
               </td>
               <td>
                 <button
@@ -118,6 +136,8 @@ JobTable.propTypes = {
   onJobClick: PropTypes.func.isRequired,
   onPageChange: PropTypes.func.isRequired,
   onSort: PropTypes.func.isRequired,
+  onToggleSave: PropTypes.func.isRequired,
+  isJobSaved: PropTypes.func.isRequired,
 };
 
 export default JobTable;

@@ -1,0 +1,51 @@
+:root {
+  --jh-primary: #2563eb;
+  --jh-primary-hover: #1d4ed8;
+  --jh-primary-50: #eff6ff;
+  --jh-primary-ring: rgba(37, 99, 235, 0.15);
+
+  --jh-bg: #f8fafc;
+  --jh-fg: #1e293b;
+  --jh-fg-strong: #0f172a;
+  --jh-fg-muted: #64748b;
+  --jh-fg-subtle: #94a3b8;
+  --jh-border: #e2e8f0;
+
+  --jh-success: #10b981;
+  --jh-warning: #d97706;
+  --jh-danger: #ef4444;
+
+  --jh-radius: 0.75rem;
+  --jh-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --jh-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --jh-shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  --jh-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --primary: var(--jh-primary);
+  --primary-hover: var(--jh-primary-hover);
+  --secondary: var(--jh-fg-muted);
+  --bg-color: var(--jh-bg);
+  --card-bg: #ffffff;
+  --text-main: var(--jh-fg);
+  --text-muted: var(--jh-fg-muted);
+  --border-color: var(--jh-border);
+  --success: var(--jh-success);
+  --danger: var(--jh-danger);
+  --shadow-sm: var(--jh-shadow-sm);
+  --shadow: var(--jh-shadow);
+  --radius: var(--jh-radius);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--jh-font-sans);
+  background: var(--jh-bg);
+  color: var(--jh-fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a { color: var(--jh-primary); text-decoration: none; }

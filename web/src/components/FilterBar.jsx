@@ -9,8 +9,9 @@ function FilterBar({ companies, filters, selected, onChange, onReset, onApply })
 
   return (
     <div className="FilterBar">
-      <select 
-        value={selected.companyId} 
+      <select
+        className="filter-select filter-select-wide"
+        value={selected.companyId}
         onChange={handleChange('companyId')}
         aria-label="Filtrar por empresa"
       >
@@ -22,8 +23,9 @@ function FilterBar({ companies, filters, selected, onChange, onReset, onApply })
         ))}
       </select>
 
-      <select 
-        value={selected.city} 
+      <select
+        className="filter-select"
+        value={selected.city}
         onChange={handleChange('city')}
         aria-label="Filtrar por cidade"
       >
@@ -35,8 +37,9 @@ function FilterBar({ companies, filters, selected, onChange, onReset, onApply })
         ))}
       </select>
 
-      <select 
-        value={selected.state} 
+      <select
+        className="filter-select"
+        value={selected.state}
         onChange={handleChange('state')}
         aria-label="Filtrar por estado"
       >
@@ -48,8 +51,9 @@ function FilterBar({ companies, filters, selected, onChange, onReset, onApply })
         ))}
       </select>
 
-      <select 
-        value={selected.department} 
+      <select
+        className="filter-select filter-select-wide"
+        value={selected.department}
         onChange={handleChange('department')}
         aria-label="Filtrar por departamento"
       >
@@ -61,8 +65,9 @@ function FilterBar({ companies, filters, selected, onChange, onReset, onApply })
         ))}
       </select>
 
-      <select 
-        value={selected.workplaceType} 
+      <select
+        className="filter-select"
+        value={selected.workplaceType}
         onChange={handleChange('workplaceType')}
         aria-label="Filtrar por tipo de ambiente"
       >
@@ -77,8 +82,9 @@ function FilterBar({ companies, filters, selected, onChange, onReset, onApply })
           ))}
       </select>
 
-      <select 
-        value={selected.jobType} 
+      <select
+        className="filter-select"
+        value={selected.jobType}
         onChange={handleChange('jobType')}
         aria-label="Filtrar por tipo de vaga"
       >
@@ -93,8 +99,9 @@ function FilterBar({ companies, filters, selected, onChange, onReset, onApply })
           ))}
       </select>
 
-      <select 
-        value={selected.source} 
+      <select
+        className="filter-select"
+        value={selected.source}
         onChange={handleChange('source')}
         aria-label="Filtrar por fonte"
       >

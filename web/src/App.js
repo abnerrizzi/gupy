@@ -1,13 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import JobSearch from './components/JobSearch';
 import FilterBar from './components/FilterBar';
 import JobTable from './components/JobTable';
 import JobDetails from './components/JobDetails';
+import Sidebar from './components/Sidebar';
+import Login from './components/Login';
+import Dashboard from './components/Dashboard';
+import SavedJobs from './components/SavedJobs';
+import Pipeline from './components/Pipeline';
+import Settings from './components/Settings';
+import TrackedJobModal from './components/TrackedJobModal';
+import useTrackedJobs from './hooks/useTrackedJobs';
+import useUser from './hooks/useUser';
+import { STAGE_NEXT } from './constants/stages';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const PAGE_SIZE = 100;
 
+function jobRowToTracked(job) {
+  return {
+    id: String(job.job_id),
+    title: job.job_title,
+    company: job.company_name || '',
+    company_id: job.company_id,
+    location: [job.workplace_city, job.workplace_state].filter(Boolean).join(', '),
+    source: job.source || '',
+    ago: 'agora',
+    job_url: job.job_url,
+    workplace_city: job.workplace_city,
+    workplace_state: job.workplace_state,
+    workplace_type: job.workplace_type,
+    job_type: job.job_type,
+    job_department: job.job_department,
+  };
+}
+
+function trackedToSelectedJob(t) {
+  return {
+    job_id: t.id,
+    job_title: t.title,
+    company_name: t.company,
+    company_id: t.company_id,
+    source: t.source,
+    job_url: t.job_url,
+    workplace_city: t.workplace_city,
+    workplace_state: t.workplace_state,
+    workplace_type: t.workplace_type,
+    job_type: t.job_type,
+    job_department: t.job_department,
+  };
+}
+
 function App() {
+  const { user, setUser } = useUser();
+  const { trackedJobs, addJob, updateStage, updateNotes, removeJob, isTracked } = useTrackedJobs();
+
+  const [authed, setAuthed] = useState(() => localStorage.getItem('jh_authed') === '1');
+  const [page, setPage] = useState('dashboard');
+
   const [jobs, setJobs] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [filters, setFilters] = useState(null);
@@ -19,7 +69,7 @@ function App() {
   const [detailError, setDetailError] = useState(null);
   const [total, setTotal] = useState(0);
   const [grandTotal, setGrandTotal] = useState(0);
-  const [page, setPage] = useState(0);
+  const [pageNum, setPageNum] = useState(0);
   const [sortKey, setSortKey] = useState('job_title');
   const [sortOrder, setSortOrder] = useState('asc');
 
@@ -33,37 +83,22 @@ function App() {
   const [jobType, setJobType] = useState('');
   const [source, setSource] = useState('');
 
-  useEffect(() => {
-    fetchFilters();
-    fetchCompanies();
-  }, []);
+  const [trackedOpen, setTrackedOpen] = useState(null);
+  const [browseVisited, setBrowseVisited] = useState(false);
+  const trackedFetchSeq = useRef(0);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchDebounced(search);
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchJobs(controller.signal);
-    return () => controller.abort();
-  }, [searchDebounced, companyId, city, state, department, workplaceType, jobType, source, page, sortKey, sortOrder]);
-
-  const fetchFilters = async () => {
+  const fetchFilters = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/filters`);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-      setFilters(data);
+      setFilters(await res.json());
     } catch (err) {
       console.error('Failed to fetch filters:', err);
       setError('Falha ao carregar filtros. Verifique se a API está online.');
     }
-  };
+  }, []);
 
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/companies`);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -73,9 +108,9 @@ function App() {
       console.error('Failed to fetch companies:', err);
       setError('Falha ao carregar lista de empresas.');
     }
-  };
+  }, []);
 
-  const fetchJobs = async (signal) => {
+  const fetchJobs = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -90,7 +125,7 @@ function App() {
       if (source) params.append('source', source);
       params.append('sort', sortKey);
       params.append('order', sortOrder);
-      params.append('offset', page * PAGE_SIZE);
+      params.append('offset', pageNum * PAGE_SIZE);
       params.append('limit', PAGE_SIZE);
 
       const res = await fetch(`${API_URL}/jobs?${params}`, { signal });
@@ -106,57 +141,31 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchDebounced, companyId, city, state, department, workplaceType, jobType, source, sortKey, sortOrder, pageNum]);
 
-  const handleSearch = (value) => {
-    setSearch(value);
-    setPage(0);
-  };
+  useEffect(() => {
+    if (!authed || !browseVisited) return;
+    fetchFilters();
+    fetchCompanies();
+  }, [authed, browseVisited, fetchFilters, fetchCompanies]);
 
-  const handleFilterChange = (key, value) => {
-    switch (key) {
-      case 'companyId':
-        setCompanyId(value);
-        break;
-      case 'city':
-        setCity(value);
-        break;
-      case 'state':
-        setState(value);
-        break;
-      case 'department':
-        setDepartment(value);
-        break;
-      case 'workplaceType':
-        setWorkplaceType(value);
-        break;
-      case 'jobType':
-        setJobType(value);
-        break;
-      case 'source':
-        setSource(value);
-        break;
-      default:
-        break;
-    }
-    setPage(0);
-  };
+  useEffect(() => {
+    setSelectedJob(null);
+    setTrackedOpen(null);
+    if (page === 'browse') setBrowseVisited(true);
+  }, [page]);
 
-  const handleResetFilters = () => {
-    setSearch('');
-    setCompanyId('');
-    setCity('');
-    setState('');
-    setDepartment('');
-    setWorkplaceType('');
-    setJobType('');
-    setSource('');
-    setPage(0);
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchDebounced(search), 200);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const handleApplyFilters = () => {
-    fetchJobs();
-  };
+  useEffect(() => {
+    if (!authed || !browseVisited) return undefined;
+    const controller = new AbortController();
+    fetchJobs(controller.signal);
+    return () => controller.abort();
+  }, [authed, browseVisited, fetchJobs]);
 
   useEffect(() => {
     if (!selectedJob) return undefined;
@@ -166,10 +175,7 @@ function App() {
     setDetailLoading(true);
     (async () => {
       try {
-        const res = await fetch(
-          `${API_URL}/jobs/${selectedJob.job_id}/detail`,
-          { signal: controller.signal },
-        );
+        const res = await fetch(`${API_URL}/jobs/${selectedJob.job_id}/detail`, { signal: controller.signal });
         if (res.status === 404) {
           setJobDetail(null);
         } else if (!res.ok) {
@@ -192,10 +198,7 @@ function App() {
     setDetailLoading(true);
     setDetailError(null);
     try {
-      const res = await fetch(
-        `${API_URL}/jobs/${selectedJob.job_id}/detail/fetch`,
-        { method: 'POST' },
-      );
+      const res = await fetch(`${API_URL}/jobs/${selectedJob.job_id}/detail/fetch`, { method: 'POST' });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
@@ -208,100 +211,194 @@ function App() {
     }
   };
 
-  const handleJobClick = (job) => {
-    setSelectedJob(job);
-  };
-
-  const handleCloseDetails = () => {
-    setSelectedJob(null);
-    setJobDetail(null);
-    setDetailError(null);
-  };
-
-  const handlePageChange = (newPage) => {
-    setPage(newPage);
-  };
-
-  const handleSort = (key) => {
-    if (key === sortKey) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+  const handleToggleSave = useCallback((job) => {
+    const id = String(job.job_id);
+    if (isTracked(id)) {
+      removeJob(id);
     } else {
-      setSortKey(key);
-      setSortOrder('asc');
+      addJob(jobRowToTracked(job));
     }
-    setPage(0);
+  }, [isTracked, removeJob, addJob]);
+  const isJobSaved = useCallback((id) => isTracked(String(id)), [isTracked]);
+
+  const openTrackedJobDetail = useCallback(async (trackedJob) => {
+    setTrackedOpen(null);
+    const seq = ++trackedFetchSeq.current;
+    setSelectedJob(trackedToSelectedJob(trackedJob));
+    try {
+      const res = await fetch(`${API_URL}/jobs/${trackedJob.id}`);
+      if (!res.ok) return;
+      const fresh = await res.json();
+      if (seq === trackedFetchSeq.current) setSelectedJob(fresh);
+    } catch {
+      // keep the synthesized fallback
+    }
+  }, []);
+  const openTrackerNotes = useCallback((job) => {
+    const tj = trackedJobs.find((t) => t.id === String(job.job_id));
+    if (tj) setTrackedOpen(tj);
+  }, [trackedJobs]);
+  const advanceTracked = (job) => {
+    const next = STAGE_NEXT[job.stage];
+    if (next && next !== job.stage) updateStage(job.id, next);
+    setTrackedOpen(null);
+  };
+  const trackedFresh = trackedOpen ? trackedJobs.find((j) => j.id === trackedOpen.id) || null : null;
+
+  const handleEnter = ({ name }) => {
+    setUser({ name });
+    localStorage.setItem('jh_authed', '1');
+    setAuthed(true);
+  };
+  const handleLogout = () => {
+    localStorage.removeItem('jh_authed');
+    setUser({ name: '', email: '' });
+    setAuthed(false);
+  };
+
+  if (!authed) return <Login initialName={user.name} onEnter={handleEnter} />;
+
+  const counts = {
+    saved: trackedJobs.filter((j) => j.stage === 'salva').length,
+    pipeline: trackedJobs.length,
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Job Search</h1>
-        <p>
-          {total.toLocaleString('pt-BR')} vagas encontradas
-          {grandTotal > 0 && grandTotal !== total && (
-            <> de {grandTotal.toLocaleString('pt-BR')} totais</>
-          )}
-        </p>
-      </header>
+    <div className="app">
+      <Sidebar page={page} setPage={setPage} counts={counts} user={user} onLogout={handleLogout} />
+      <main className="main">
+        {page === 'dashboard' && (
+          <Dashboard
+            trackedJobs={trackedJobs}
+            user={user}
+            onOpen={openTrackedJobDetail}
+            onGoBrowse={() => setPage('browse')}
+          />
+        )}
 
-      <main className="App-main">
-        {error && (
-          <div className="App-error">
-            {error}
-            <button onClick={() => { setError(null); fetchFilters(); fetchCompanies(); fetchJobs(); }}>
-              Tentar novamente
-            </button>
+        <div style={{ display: page === 'browse' ? 'block' : 'none' }}>
+          <div className="page-head">
+            <div>
+              <h2>Buscar vagas</h2>
+              <p>
+                {total.toLocaleString('pt-BR')} vagas encontradas
+                {grandTotal > 0 && grandTotal !== total && (
+                  <> de {grandTotal.toLocaleString('pt-BR')} totais</>
+                )}
+              </p>
+            </div>
           </div>
-        )}
 
-        <JobSearch value={search} onChange={handleSearch} />
+          {error && (
+            <div className="App-error">
+              {error}
+              <button type="button" onClick={() => { setError(null); fetchFilters(); fetchCompanies(); fetchJobs(); }}>
+                Tentar novamente
+              </button>
+            </div>
+          )}
 
-        {filters && (
-          <FilterBar
+          <JobSearch
+            value={search}
+            onChange={(v) => { setSearch(v); setPageNum(0); }}
+          />
+
+          {filters && (
+            <FilterBar
+              companies={companies}
+              filters={filters}
+              selected={{ companyId, city, state, department, workplaceType, jobType, source }}
+              onChange={(key, value) => {
+                switch (key) {
+                  case 'companyId': setCompanyId(value); break;
+                  case 'city': setCity(value); break;
+                  case 'state': setState(value); break;
+                  case 'department': setDepartment(value); break;
+                  case 'workplaceType': setWorkplaceType(value); break;
+                  case 'jobType': setJobType(value); break;
+                  case 'source': setSource(value); break;
+                  default: break;
+                }
+                setPageNum(0);
+              }}
+              onReset={() => {
+                setSearch(''); setCompanyId(''); setCity(''); setState('');
+                setDepartment(''); setWorkplaceType(''); setJobType(''); setSource('');
+                setPageNum(0);
+              }}
+              onApply={() => fetchJobs()}
+            />
+          )}
+
+          <JobTable
+            jobs={jobs}
             companies={companies}
-            filters={filters}
-            selected={{
-              companyId,
-              city,
-              state,
-              department,
-              workplaceType,
-              jobType,
-              source
+            loading={loading}
+            page={pageNum}
+            totalPages={totalPages}
+            sortKey={sortKey}
+            sortOrder={sortOrder}
+            onJobClick={setSelectedJob}
+            onPageChange={setPageNum}
+            onSort={(key) => {
+              if (key === sortKey) {
+                setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+              } else {
+                setSortKey(key);
+                setSortOrder('asc');
+              }
+              setPageNum(0);
             }}
-            onChange={handleFilterChange}
-            onReset={handleResetFilters}
-            onApply={handleApplyFilters}
+            onToggleSave={handleToggleSave}
+            isJobSaved={isJobSaved}
+          />
+        </div>
+
+        {page === 'saved' && (
+          <SavedJobs
+            trackedJobs={trackedJobs}
+            onOpen={openTrackedJobDetail}
+            onApply={(j) => updateStage(j.id, 'aplicada')}
+            onRemove={(j) => removeJob(j.id)}
           />
         )}
 
-        <JobTable
-          jobs={jobs}
-          companies={companies}
-          loading={loading}
-          page={page}
-          totalPages={totalPages}
-          sortKey={sortKey}
-          sortOrder={sortOrder}
-          onJobClick={handleJobClick}
-          onPageChange={handlePageChange}
-          onSort={handleSort}
-        />
-
-        {selectedJob && (
-          <JobDetails
-            job={selectedJob}
-            detail={jobDetail}
-            loading={detailLoading}
-            error={detailError}
-            company={companies.find(c => c.id === selectedJob.company_id)}
-            onSync={handleSyncDetail}
-            onClose={handleCloseDetails}
+        {page === 'pipeline' && (
+          <Pipeline
+            trackedJobs={trackedJobs}
+            onOpen={openTrackedJobDetail}
+            onMove={updateStage}
           />
+        )}
+
+        {page === 'settings' && (
+          <Settings user={user} setUser={setUser} />
         )}
       </main>
+
+      {selectedJob && (
+        <JobDetails
+          job={selectedJob}
+          detail={jobDetail}
+          loading={detailLoading}
+          error={detailError}
+          company={companies.find((c) => c.id === selectedJob.company_id)}
+          onSync={handleSyncDetail}
+          onClose={() => { setSelectedJob(null); setJobDetail(null); setDetailError(null); }}
+          onToggleSave={handleToggleSave}
+          isSaved={isJobSaved(selectedJob.job_id)}
+          onOpenTrackerNotes={openTrackerNotes}
+        />
+      )}
+
+      <TrackedJobModal
+        job={trackedFresh}
+        onClose={() => setTrackedOpen(null)}
+        onAdvance={advanceTracked}
+        onNotes={updateNotes}
+      />
     </div>
   );
 }
