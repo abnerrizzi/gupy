@@ -46,7 +46,13 @@
 .sidebar-foot-user-text { min-width: 0; overflow: hidden; flex: 1 1 auto; }
 .sidebar-foot-user-text > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.75rem; }
 .sidebar-foot-caret { color: var(--jh-fg-subtle); font-size: 0.75rem; flex: 0 0 auto; }
-.sidebar-foot-actions { display: flex; flex-direction: column; gap: 0.25rem; padding-top: 0.25rem; border-top: 1px dashed var(--jh-border); }
+.sidebar-foot-actions { display: flex; flex-direction: column; gap: 0.25rem; padding-bottom: 0.25rem; margin-bottom: 0.25rem; border-bottom: 1px dashed var(--jh-border); }
+.theme-switch { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.625rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; }
+.theme-switch-label { display: inline-flex; align-items: center; gap: 8px; color: var(--jh-fg); }
+.theme-switch-toggle { width: 38px; height: 22px; border-radius: 999px; border: none; background: var(--jh-border); cursor: pointer; position: relative; padding: 0; flex: 0 0 auto; transition: background-color 0.15s; }
+.theme-switch-toggle.is-on { background: var(--jh-primary); }
+.theme-switch-knob { position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--jh-surface); box-shadow: var(--jh-shadow-sm); transition: transform 0.15s; }
+.theme-switch-toggle.is-on .theme-switch-knob { transform: translateX(16px); }
 
 .main { padding: 2rem 2.5rem; }
 .page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; }

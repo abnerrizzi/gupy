@@ -35,10 +35,34 @@ NavItem.defaultProps = {
   active: false,
 };
 
-const THEME_LABELS = { system: 'Tema: sistema', light: 'Tema: claro', dark: 'Tema: escuro' };
-const THEME_ICONS = { system: '◐', light: '☀', dark: '☾' };
+function ThemeSwitch({ theme, onToggle }) {
+  const isDark = theme === 'dark';
+  return (
+    <div className="theme-switch">
+      <span className="theme-switch-label">
+        <span aria-hidden="true">{isDark ? '☾' : '☀'}</span>
+        {isDark ? 'Escuro' : 'Claro'}
+      </span>
+      <button
+        type="button"
+        className={'theme-switch-toggle' + (isDark ? ' is-on' : '')}
+        role="switch"
+        aria-checked={isDark}
+        aria-label="Alternar tema"
+        onClick={onToggle}
+      >
+        <span className="theme-switch-knob" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
 
-function Sidebar({ page, setPage, counts, user, onLogout, theme, onCycleTheme }) {
+ThemeSwitch.propTypes = {
+  theme: PropTypes.oneOf(['light', 'dark']).isRequired,
+  onToggle: PropTypes.func.isRequired,
+};
+
+function Sidebar({ page, setPage, counts, user, onLogout, theme, onToggleTheme }) {
   const initial = (user.name?.trim()?.[0] || '?').toUpperCase();
   const [menuOpen, setMenuOpen] = useState(false);
   const footRef = useRef(null);
@@ -70,6 +94,22 @@ function Sidebar({ page, setPage, counts, user, onLogout, theme, onCycleTheme })
       <NavItem icon="▦" label="Pipeline" count={counts.pipeline} active={page === 'pipeline'} onClick={() => setPage('pipeline')} />
 
       <div className="sidebar-foot" ref={footRef}>
+        {menuOpen && (
+          <div className="sidebar-foot-actions" role="menu">
+            <NavItem
+              icon="⚙"
+              label="Configurações"
+              active={page === 'settings'}
+              onClick={() => { setMenuOpen(false); setPage('settings'); }}
+            />
+            <ThemeSwitch theme={theme} onToggle={onToggleTheme} />
+            <NavItem
+              icon="⏻"
+              label="Sair"
+              onClick={() => { setMenuOpen(false); onLogout(); }}
+            />
+          </div>
+        )}
         <button
           type="button"
           className={'sidebar-foot-user' + (menuOpen ? ' is-open' : '')}
@@ -82,28 +122,8 @@ function Sidebar({ page, setPage, counts, user, onLogout, theme, onCycleTheme })
             <div style={{ fontWeight: 600, color: 'var(--jh-fg)' }}>{user.name || 'Visitante'}</div>
             <div>{user.email || ''}</div>
           </div>
-          <span className="sidebar-foot-caret" aria-hidden="true">{menuOpen ? '▾' : '▸'}</span>
+          <span className="sidebar-foot-caret" aria-hidden="true">{menuOpen ? '▴' : '▸'}</span>
         </button>
-        {menuOpen && (
-          <div className="sidebar-foot-actions" role="menu">
-            <NavItem
-              icon="⚙"
-              label="Configurações"
-              active={page === 'settings'}
-              onClick={() => { setMenuOpen(false); setPage('settings'); }}
-            />
-            <NavItem
-              icon={THEME_ICONS[theme]}
-              label={THEME_LABELS[theme]}
-              onClick={onCycleTheme}
-            />
-            <NavItem
-              icon="⏻"
-              label="Sair"
-              onClick={() => { setMenuOpen(false); onLogout(); }}
-            />
-          </div>
-        )}
       </div>
     </aside>
   );
@@ -121,8 +141,8 @@ Sidebar.propTypes = {
     email: PropTypes.string,
   }).isRequired,
   onLogout: PropTypes.func.isRequired,
-  theme: PropTypes.oneOf(['system', 'light', 'dark']).isRequired,
-  onCycleTheme: PropTypes.func.isRequired,
+  theme: PropTypes.oneOf(['light', 'dark']).isRequired,
+  onToggleTheme: PropTypes.func.isRequired,
 };
 
 export default Sidebar;
