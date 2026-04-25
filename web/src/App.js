@@ -385,7 +385,7 @@ function App() {
         )}
 
         {page === 'settings' && (
-          <Settings user={user} setUser={setUser} />
+          <Settings user={auth.user} />
         )}
       </main>
 
