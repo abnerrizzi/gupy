@@ -10,12 +10,14 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 function layoutWords(words, width, height, scaleFactor) {
   if (!words.length) return [];
 
-  const maxVal = words[0].value;
-  const minVal = words[words.length - 1].value;
-  const range = Math.max(maxVal - minVal, 1);
+  // Logarithmic scale for smoother size distribution
+  const maxVal = Math.log(words[0].value || 1);
+  const minVal = Math.log(words[words.length - 1].value || 1);
+  const range = Math.max(maxVal - minVal, 0.1);
 
-  const minFont = 12 * scaleFactor;
-  const maxFont = 56 * scaleFactor;
+  // Increase the font sizes to make words more prominent
+  const minFont = 14 * scaleFactor;
+  const maxFont = 76 * scaleFactor;
 
   const placed = [];
   const occupied = [];
@@ -24,30 +26,41 @@ function layoutWords(words, width, height, scaleFactor) {
   const measureCanvas = document.createElement('canvas');
   const mCtx = measureCanvas.getContext('2d');
 
-  for (const word of words) {
-    const t = (word.value - minVal) / range;
+  const cx = width / 2;
+  const cy = height / 2;
+  const aspect = width / height;
+
+  for (let idx = 0; idx < words.length; idx++) {
+    const word = words[idx];
+    const t = (Math.log(word.value || 1) - minVal) / range;
     const fontSize = minFont + t * (maxFont - minFont);
     mCtx.font = `${Math.round(fontSize * 0.85)}px "Inter", system-ui, sans-serif`;
     const metrics = mCtx.measureText(word.text);
     const w = metrics.width + 6;
-    const h = fontSize * 1.2;
+    const h = fontSize * 1.05; // Tighter vertical bounding box
 
     let foundSpot = false;
-    // Spiral outward from center
-    const cx = width / 2;
-    const cy = height / 2;
-    for (let r = 0; r < Math.max(width, height) * 0.8; r += 2) {
-      for (let angle = 0; angle < 2 * Math.PI; angle += 0.3) {
-        const x = cx + r * Math.cos(angle) - w / 2;
-        const y = cy + r * Math.sin(angle) - h / 2;
+    // Vary the starting angle to create a more organic "cloud" shape
+    let angle = (idx * 0.3) % (Math.PI * 2);
+    let radius = 0;
 
-        // Bounds check
-        if (x < 4 || y < 4 || x + w > width - 4 || y + h > height - 4) continue;
+    // Finer-grained spiral steps for dense packing
+    while (radius < Math.max(width, height)) {
+      const x = cx + radius * Math.cos(angle) * aspect - w / 2;
+      const y = cy + radius * Math.sin(angle) - h / 2;
 
-        // Collision check
-        const collides = occupied.some(
-          (o) => !(x + w < o.x || x > o.x + o.w || y + h < o.y || y > o.y + o.h)
-        );
+      // Bounds check
+      if (x >= 4 && y >= 4 && x + w <= width - 4 && y + h <= height - 4) {
+        // Collision check against already placed words
+        let collides = false;
+        for (let i = 0; i < occupied.length; i++) {
+          const o = occupied[i];
+          if (x < o.x + o.w && x + w > o.x && y < o.y + o.h && y + h > o.y) {
+            collides = true;
+            break;
+          }
+        }
+        
         if (!collides) {
           placed.push({ ...word, x, y, w, h, fontSize });
           occupied.push({ x, y, w, h });
@@ -55,7 +68,9 @@ function layoutWords(words, width, height, scaleFactor) {
           break;
         }
       }
-      if (foundSpot) break;
+
+      angle += 0.25;
+      radius += 0.4;
     }
   }
 
