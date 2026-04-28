@@ -73,13 +73,12 @@ curl -s -b "$COOKIE" -X POST -H 'Content-Type: application/json' \
 curl -s -b "$COOKIE" -X POST http://localhost:8080/api/auth/logout
 
 # On-demand job-detail fetch (writes the source-specific jobs_{source}_detail row).
-# LinkedIn path requires the `linkedin` profile because it proxies to the sidecar.
+# All three sources now resolve inside the API container — no sidecar required.
 curl -X POST "http://localhost:8080/api/jobs/<job_id>/detail/fetch"
 curl "http://localhost:8080/api/jobs/<job_id>/detail"
 
-# Follow step-level fetch logs
-docker compose logs -f api             # gupy + inhire fetchers + auth + tracker log here
-docker compose logs -f linkedin-detail # linkedin sidecar logs here
+# Follow step-level fetch logs (all three sources log from the api container)
+docker compose logs -f api
 ```
 
 ## Architecture
@@ -88,29 +87,26 @@ All services share a single SQLite file at `./out/jobhubmine.db`:
 
 ```
 Scraper (Python) ──▶ SQLite ◀── API (Flask/Gunicorn) ◀── Web (React/Nginx)
-       ▲                            │
-       │                            │ on-demand LinkedIn detail fetch
-       └─── linkedin-detail  ◀──────┘   (profile: linkedin)
-            (Flask sidecar,
-             keeps Selenium
-             driver warm)
+                                    │
+                                    └─▶ on-demand detail fetch
+                                        (gupy, inhire, linkedin — all in-process)
 ```
 
 - **HTTP Scraper** (`app/main.py` + `app/scrapers/` package) — runs on-demand via `docker compose run`. Each source is a `Scraper` subclass in `app/scrapers/<source>.py` (currently `GupyScraper`, `InhireScraper`), re-exported from `app/scrapers/__init__.py`. `KNOWN_SOURCES` in `app/main.py` gates which source names can become table-name suffixes (SQL-injection defence). A `ThreadPoolExecutor` per scraper parallelises `fetch_jobs` across companies.
-- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn scraper. The `selenium` and `scraper-linkedin` compose services sit behind the `linkedin` profile so they don't autostart on bare `up`. `docker compose run --rm scraper-linkedin` auto-activates the profile; selenium comes up via `depends_on` health check. Writes `out/linkedin_<ts>.json` AND loads rows into `jobs_linkedin_{ts}` / `companies_linkedin_{ts}` → merged into `_latest` via `sqlite-init.sql`. Configured entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
+- **Selenium scraper** (`scrapers/linkedin-ff-selenium/`) — Firefox-based LinkedIn *listings* scraper (detail is now fetched directly by the API — see below). The `selenium` and `scraper-linkedin` compose services sit behind the `linkedin` profile so they don't autostart on bare `up`. `docker compose run --rm scraper-linkedin` auto-activates the profile; selenium comes up via `depends_on` health check. Writes `out/linkedin_<ts>.json` AND loads rows into `jobs_linkedin_{ts}` / `companies_linkedin_{ts}` → merged into `_latest` via `sqlite-init.sql` (mounted read-only into the container). Configured entirely via env vars in `.env` (git-ignored) overriding `.env_sample`.
 - **API** (`api/app.py` + `api/auth.py` + `api/fetchers/`) — Flask endpoints served by 2 Gunicorn workers (**`--timeout 120`** because the LinkedIn detail round-trip can take 30–60 s). Read endpoints use `build_filters()` over `jobs_all`/`job_details` views. Cookie-session auth + a per-user `tracked_jobs` table back the SPA's Saved/Pipeline pages. Each connection enables WAL once (`_enable_wal`) so API writes don't block a concurrent scraper run.
-- **linkedin-detail sidecar** (`scrapers/linkedin-ff-selenium/app/detail_server.py`) — built from the same image as `scraper-linkedin` but with a different entrypoint (`python3 -m app.detail_server`). Lives under the `linkedin` profile, exposes `POST /fetch/<job_id>` on port 8000 of the compose network, keeps one cached `LinkedInSeleniumScraper` behind `_driver_lock`, and auto-rebuilds the driver when the Selenium hub GCs the session (~3 min idle — see `_scrape_with_retry`).
-- **Web** (`web/src/`) — React SPA, all top-level state in `App.js`. Sidebar shell at 240px with five pages: Dashboard / Buscar vagas (the API search) / Salvas / Pipeline (kanban) / collapsible user menu in the foot. Login gate uses real auth. Tracker (Saved/Pipeline) is API-backed (`useTrackedJobs`). Theme is a binary light/dark switch (`useTheme` + `data-theme` attribute), toggled in the user menu. Nginx proxies `/api/*` to Flask (**`proxy_read_timeout 120s`** to match the gunicorn timeout), eliminating CORS. `entrypoint.sh` injects `API_URL` at container start. `JobDetails.jsx` has two states driven by `has_detail`: **Sync** button vs. rendered payload (DOMPurify-sanitized HTML for gupy/inhire, plain-text for LinkedIn); a collapsible `<details>` at the bottom renders the raw source JSON (`next_data`/`raw_payload`) via `JsonTree.jsx`.
+- **linkedin-detail sidecar** (`scrapers/linkedin-ff-selenium/app/detail_server.py`) — **legacy path**, still builds under the `linkedin` compose profile. The API no longer proxies to it (the LinkedIn fetcher now hits the public `jobs-guest/jobs/api/jobPosting/<id>` endpoint directly via `requests` + BeautifulSoup, see `api/fetchers/linkedin.py`).
+- **Web** (`web/src/`) — React SPA, all top-level state in `App.js`. Sidebar shell at 240px with five pages: Dashboard / Buscar vagas (the API search) / Salvas / Pipeline (kanban) / collapsible user menu in the foot. Login gate uses real auth. Tracker (Saved/Pipeline) is API-backed (`useTrackedJobs`). Theme is a binary light/dark switch (`useTheme` + `data-theme` attribute), toggled in the user menu. Nginx proxies `/api/*` to Flask (**`proxy_read_timeout 120s`** to match the gunicorn timeout), eliminating CORS. `entrypoint.sh` injects `API_URL` at container start. `JobDetails.jsx` has two states driven by `has_detail`: **Sync** button vs. rendered payload (DOMPurify-sanitized HTML for all three sources; LinkedIn falls back to plain-text rendering for legacy Selenium-era rows via a `<`-prefix sniff). `utils/detailFields.js::extractCommonFacts` normalises source-specific details. A collapsible `<details>` at the bottom renders the raw source JSON (`next_data`/`raw_payload`) via `JsonTree.jsx`.
 
 ### API Endpoints
 
 | Route | Purpose / key query params |
 |---|---|
 | `GET /api/health` | — |
-| `GET /api/jobs` | `search`, `company_id`, `city`, `state`, `department`, `workplace_type`, `jobType`, `source`, `sort`, `order`, `limit` (max 1000), `offset` |
+| `GET /api/jobs` | `search`, `company_id`, `city`, `state`, `department`, `workplace_type`, `jobType`, `source`, `sort`, `order`, `limit` (max 1000), `offset`. Response includes `total` (filtered count) and `grand_total` (unfiltered count) so the SPA header can render "X jobs found in Y". |
 | `GET /api/jobs/<job_id>` | Single job row (reads from `jobs_all` + `companies_all`). |
 | `GET /api/jobs/<job_id>/detail` | 404 unless the detail has been synced; returns the source-specific `jobs_{source}_detail` row. |
-| `POST /api/jobs/<job_id>/detail/fetch` | On-demand fetch. Dispatches to `api/fetchers/{source}.py`; for LinkedIn, proxies to the sidecar. Upserts the row and returns it. 501 if the source isn't wired, 502 on upstream failure. |
+| `POST /api/jobs/<job_id>/detail/fetch` | On-demand fetch. Dispatches to `api/fetchers/{source}.py`; LinkedIn hits `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/<id>` directly (no sidecar). Upserts the row and returns it. 501 if the source isn't wired, 502 on upstream failure. |
 | `GET /api/companies` | — |
 | `GET /api/filters` | — |
 | `POST /api/auth/register` | Body `{username, password, name?, surname?}`. 201 + sets cookie session. 409 on duplicate username. 400 on invalid password (≥8 chars) or `name`/`surname` >64 chars. |
@@ -148,10 +144,14 @@ Per-source tables with unioned views, plus app-state tables (`users`, `tracked_j
 
 Per-source `jobs_{source}_detail` tables are populated by the POST `/detail/fetch` endpoint, not by the bulk scraper:
 
-- Schema is source-specific. Each source also stores a **raw full-payload** column: `jobs_gupy_detail.next_data` (raw `__NEXT_DATA__` JSON), `jobs_inhire_detail.raw_payload` (raw API JSON), `jobs_linkedin_detail.detail_html` (rendered `<main>` HTML).
+- Schema is source-specific:
+  - **gupy**: `description_html`, `responsibilities_html`, `prerequisites_html`, `workplace_type`, `job_type`, `country`, `published_at`, `next_data` (raw `__NEXT_DATA__` JSON).
+  - **inhire**: `description_html`, `about_html`, `contract_type`, `workplace_type`, `location`, `location_complement`, `published_at`, `raw_payload` (raw API JSON).
+  - **linkedin**: `description` (HTML from guest endpoint), `seniority`, `employment_type`, `job_function`, `industries`, `posted_at` (ISO datetime parsed from "N hours ago"), `num_applicants` (INTEGER), `detail_html` (full guest HTML body).
 - The `job_details` view LEFT JOINs all three detail tables and exposes `has_detail` + `detail_fetched_at` so the SPA can decide whether to show the Sync button.
+- **Schema migration hook**: `api/app.py::_ensure_detail_schema` runs at module import and ALTERs each table to add or re-type columns declared in `_DETAIL_MIGRATIONS`.
 - Fetchers live in `api/fetchers/<source>.py`, registered in `api/fetchers/__init__.py::FETCHERS`. They return a dict whose keys match the detail-table columns (minus `id` and `fetched_at`); `upsert_detail` builds the `INSERT OR REPLACE` dynamically from the dict.
-- LinkedIn's fetcher proxies to `http://linkedin-detail:8000/fetch/<id>` (compose-network DNS, see `LINKEDIN_DETAIL_URL` env); the sidecar writes its own row first, the API upserts again — both are idempotent INSERT-OR-REPLACEs.
+- The LinkedIn fetcher parses the guest-endpoint HTML with BeautifulSoup: description from `[class*=description] > section > div` (strips the `show-more-less-html__markup` wrapper), criteria list from `ul.description__job-criteria-list` (maps "Seniority level", "Employment type", "Job function", "Industries"), posted time from `[class*=posted-time-ago__text]` (converted to ISO via `_parse_posted_time_ago`), applicants from `[class*=num-applicants__*]` (integer via `_parse_applicants`). Document the endpoint shape at <https://gist.github.com/Diegiwg/51c22fa7ec9d92ed9b5d1f537b9e1107> if selectors change.
 
 ### Selenium Scraper Internals
 
@@ -207,13 +207,16 @@ Per-source `jobs_{source}_detail` tables are populated by the POST `/detail/fetc
 | `web/src/hooks/useToasts.js` | Auto-dismissing transient errors, rendered by `ToastTray` |
 | `web/src/hooks/useModalA11y.js` | Reusable ESC + focus management for both modals |
 | `web/src/components/Sidebar.jsx` | 240px shell + collapsible user menu (Configurações / theme switch / Sair) |
-| `web/src/components/JobDetails.jsx` | Primary modal — API-backed detail Sync, source-specific rendering, save/unsave, bridge to TrackedJobModal |
+| `web/src/components/JobDetails.jsx` | Two-state modal (Sync vs. rendered payload), source-specific rendering via `sourceBlocks()`, collapsible raw-JSON `<details>` |
 | `web/src/components/TrackedJobModal.jsx` | Local notes + timeline + advance-stage modal for tracked jobs |
 | `web/src/components/JsonTree.jsx` | Minimal recursive JSON explorer (expand/collapse, colour-coded primitives) |
+| `web/src/utils/detailFields.js` | `extractCommonFacts()` normaliser + date/country/seniority formatters used by `JobDetails.jsx` |
+| `web/src/utils/formatters.js` | Portuguese labels for `workplace_type` and `job_type`, shared between table and modal |
 | `web/src/styles/tokens.css` | Design tokens incl. `data-theme="dark"` overrides; aliases legacy vars |
 | `web/src/styles/shell.css` | Sidebar / kanban / saved-list / theme-switch / toast / login layout |
 | `web/src/constants/stages.js` | `STAGE_META`, `STAGE_ORDER`, `STAGE_NEXT` (kept manually in sync with `api/app.py::STAGE_ORDER`) |
-| `sqlite-init.sql` | Full DB schema: per-source tables, `_latest` tables, UNION views, `users`, `tracked_jobs`. Runs pre- and post-scrape; `${ts}` substituted by `run_scrap.sh` |
+| `entrypoint.sh` + `api/entrypoint.sh` | Root-level chown of `/app/out` then `su-exec appuser` — keeps scraper + api writing as uid 1000 |
+| `sqlite-init.sql` | Full DB schema: per-source tables, `_latest` tables, UNION views. Runs pre- and post-scrape; `${ts}` substituted by `run_scrap.sh` |
 | `migrate-to-per-source.sql` | One-shot migration from the pre-split `jobs_all`/`companies_all` TABLE schema; invoked conditionally by `run_scrap.sh` |
 | `run_scrap.sh` | Validates timestamp, runs schema init, conditionally applies migration, runs scraper, re-applies schema |
 | `docker-compose.yml` | All service definitions (`scraper`, `api`, `web`, `selenium`, `scraper-linkedin`, `linkedin-detail`). `scraper` uses the `scraper` profile; `selenium` + `scraper-linkedin` + `linkedin-detail` use the `linkedin` profile |
