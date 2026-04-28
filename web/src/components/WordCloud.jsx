@@ -15,9 +15,9 @@ function layoutWords(words, width, height, scaleFactor) {
   const minVal = Math.log(words[words.length - 1].value || 1);
   const range = Math.max(maxVal - minVal, 0.1);
 
-  // Increase the font sizes to make words more prominent
+  // Match the reference image: huge fonts, very dense
   const minFont = 14 * scaleFactor;
-  const maxFont = 76 * scaleFactor;
+  const maxFont = 100 * scaleFactor;
 
   const placed = [];
   const occupied = [];
@@ -34,18 +34,28 @@ function layoutWords(words, width, height, scaleFactor) {
     const word = words[idx];
     const t = (Math.log(word.value || 1) - minVal) / range;
     const fontSize = minFont + t * (maxFont - minFont);
-    mCtx.font = `${Math.round(fontSize * 0.85)}px "Inter", system-ui, sans-serif`;
+    
+    // Impact or Arial Black gives that dense, heavy look from the image
+    mCtx.font = `900 ${Math.round(fontSize)}px Impact, "Arial Black", sans-serif`;
     const metrics = mCtx.measureText(word.text);
-    const w = metrics.width + 6;
-    const h = fontSize * 1.05; // Tighter vertical bounding box
+    
+    // Tighter bounding box for dense packing
+    const textWidth = metrics.width + 2;
+    const textHeight = fontSize * 0.85;
+
+    // 25% chance to be vertical (rotated -90deg)
+    // Keep the top 2 biggest words horizontal for readability
+    const isVertical = idx > 1 && Math.random() < 0.25;
+
+    const w = isVertical ? textHeight : textWidth;
+    const h = isVertical ? textWidth : textHeight;
 
     let foundSpot = false;
-    // Vary the starting angle to create a more organic "cloud" shape
     let angle = (idx * 0.3) % (Math.PI * 2);
     let radius = 0;
 
-    // Finer-grained spiral steps for dense packing
-    while (radius < Math.max(width, height)) {
+    // Expand search radius heavily to ensure we find a spot
+    while (radius < Math.max(width, height) * 1.5) {
       const x = cx + radius * Math.cos(angle) * aspect - w / 2;
       const y = cy + radius * Math.sin(angle) - h / 2;
 
@@ -62,7 +72,7 @@ function layoutWords(words, width, height, scaleFactor) {
         }
         
         if (!collides) {
-          placed.push({ ...word, x, y, w, h, fontSize });
+          placed.push({ ...word, x, y, w, h, fontSize, isVertical });
           occupied.push({ x, y, w, h });
           foundSpot = true;
           break;
@@ -85,30 +95,42 @@ function drawCloud(canvas, placedWords, hoveredWord) {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Color palette — vibrant yet harmonious
+  // Color palette matching the classic word cloud style
   const palette = [
-    '#6366f1', '#8b5cf6', '#a78bfa', '#ec4899', '#f43f5e',
-    '#06b6d4', '#14b8a6', '#10b981', '#f59e0b', '#3b82f6',
-    '#e879f9', '#fb923c', '#22d3ee', '#4ade80', '#818cf8',
+    '#102a43', // very dark blue
+    '#820000', // dark red
+    '#9a3412', // rust orange
+    '#243b53', // dark blue-grey
+    '#b91c1c', // red
+    '#0f172a', // almost black
+    '#ea580c', // orange
+    '#451a03', // dark brown
   ];
 
   for (let i = 0; i < placedWords.length; i++) {
     const pw = placedWords[i];
     const isHovered = hoveredWord && hoveredWord.text === pw.text;
-    const fontWeight = pw.fontSize > 30 ? 700 : 600;
 
     ctx.save();
-    ctx.font = `${fontWeight} ${Math.round(pw.fontSize * 0.85)}px "Inter", system-ui, sans-serif`;
-    ctx.fillStyle = isHovered ? '#f59e0b' : palette[i % palette.length];
-    ctx.globalAlpha = isHovered ? 1 : 0.88;
+    ctx.font = `900 ${Math.round(pw.fontSize)}px Impact, "Arial Black", sans-serif`;
+    ctx.fillStyle = isHovered ? '#3b82f6' : palette[i % palette.length];
+    ctx.globalAlpha = isHovered ? 1 : 0.95;
     ctx.textBaseline = 'top';
 
     if (isHovered) {
-      ctx.shadowColor = 'rgba(245,158,11,0.35)';
-      ctx.shadowBlur = 12;
+      ctx.shadowColor = 'rgba(59, 130, 246, 0.4)';
+      ctx.shadowBlur = 8;
     }
 
-    ctx.fillText(pw.text, pw.x * dpr, pw.y * dpr);
+    if (pw.isVertical) {
+      // For vertical text, rotate -90 degrees around the bottom-left corner of the bounding box
+      ctx.translate(pw.x * dpr, (pw.y + pw.h) * dpr);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(pw.text, 0, 0);
+    } else {
+      ctx.translate(pw.x * dpr, pw.y * dpr);
+      ctx.fillText(pw.text, 0, 0);
+    }
     ctx.restore();
   }
 
