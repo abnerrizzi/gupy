@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import os
+import re
 import sqlite3
 import json
 import logging
+from html.parser import HTMLParser
 import time
 from datetime import timedelta
 
@@ -693,6 +695,128 @@ def get_filters():
         'job_types': job_types,
         'sources': sources
     })
+
+
+# ── Word Cloud ────────────────────────────────────────────────────────────
+
+class _HTMLTextExtractor(HTMLParser):
+    """Lightweight HTML-to-text converter for stripping tags from
+    description_html / about_html fields."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._parts: list = []
+
+    def handle_data(self, data: str) -> None:
+        self._parts.append(data)
+
+    def get_text(self) -> str:
+        return ' '.join(self._parts)
+
+
+def _strip_html(html_str: str) -> str:
+    """Remove HTML tags and return plain text."""
+    if not html_str:
+        return ''
+    parser = _HTMLTextExtractor()
+    try:
+        parser.feed(html_str)
+    except Exception:
+        # Fallback: crude regex strip
+        return re.sub(r'<[^>]+>', ' ', html_str)
+    return parser.get_text()
+
+
+# Stopwords: Portuguese + English (common short/filler words)
+_STOPWORDS: set = {
+    # Portuguese
+    'a', 'à', 'ao', 'aos', 'as', 'até', 'com', 'como', 'da', 'das', 'de',
+    'do', 'dos', 'e', 'é', 'em', 'entre', 'era', 'essa', 'esse', 'esta',
+    'este', 'eu', 'foi', 'for', 'há', 'isso', 'isto', 'já', 'lhe', 'lhes',
+    'lo', 'mais', 'mas', 'me', 'mesmo', 'meu', 'minha', 'muito', 'na',
+    'nas', 'nem', 'no', 'nos', 'não', 'nós', 'num', 'numa', 'o', 'os',
+    'ou', 'para', 'pela', 'pelas', 'pelo', 'pelos', 'por', 'qual', 'quando',
+    'que', 'quem', 'são', 'se', 'sem', 'ser', 'seu', 'seus', 'sua', 'suas',
+    'só', 'também', 'te', 'tem', 'ter', 'toda', 'todas', 'todo', 'todos',
+    'tu', 'tudo', 'um', 'uma', 'umas', 'uns', 'você', 'vos',
+    # English
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'can', 'do',
+    'for', 'from', 'had', 'has', 'have', 'he', 'her', 'his', 'how', 'if',
+    'in', 'into', 'is', 'it', 'its', 'may', 'my', 'no', 'nor', 'not', 'of',
+    'on', 'or', 'our', 'out', 'own', 'per', 'she', 'so', 'than', 'that',
+    'the', 'their', 'them', 'then', 'there', 'these', 'they', 'this', 'to',
+    'too', 'up', 'us', 'use', 'was', 'we', 'were', 'what', 'when', 'where',
+    'which', 'who', 'will', 'with', 'would', 'you', 'your',
+    # Common filler in job postings
+    'vaga', 'vagas', 'area', 'área', 'sobre', 'empresa', 'trabalho',
+    'work', 'job', 'jobs', 'team', 'experience', 'will', 'looking',
+    'about', 'our', 'company', 'candidate', 'role',
+}
+
+_TOKEN_RE = re.compile(r'[a-záàâãéèêíïóôõúüçñ]+', re.IGNORECASE)
+
+
+def _tokenize_and_count(texts: list, limit: int = 100) -> list:
+    """Tokenize a list of strings into words, count frequencies, and return
+    the top ``limit`` words as ``[{text, value}, ...]``."""
+    freq: dict = {}
+    for text in texts:
+        if not text:
+            continue
+        for token in _TOKEN_RE.findall(text.lower()):
+            if len(token) < 3:
+                continue
+            if token in _STOPWORDS:
+                continue
+            freq[token] = freq.get(token, 0) + 1
+
+    # Sort by frequency descending, then alphabetically
+    sorted_words = sorted(freq.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [{'text': w, 'value': c} for w, c in sorted_words[:limit]]
+
+
+@app.route('/api/wordcloud')
+def get_wordcloud():
+    wc_type = request.args.get('type', 'titles')
+    limit = safe_int(request.args.get('limit'), 100, min_val=10, max_val=500)
+
+    db = get_db()
+    cursor = db.cursor()
+
+    if wc_type == 'descriptions':
+        texts = []
+        # Collect descriptions from all three detail tables
+        for query in (
+            "SELECT description_html FROM jobs_gupy_detail WHERE description_html IS NOT NULL",
+            "SELECT description_html FROM jobs_inhire_detail WHERE description_html IS NOT NULL",
+            "SELECT description FROM jobs_linkedin_detail WHERE description IS NOT NULL",
+        ):
+            try:
+                cursor.execute(query)
+                rows = cursor.fetchall()
+                for row in rows:
+                    texts.append(_strip_html(row[0]))
+            except Exception:
+                logger.debug('wordcloud: skipped query %s', query, exc_info=True)
+
+        # Also pull about_html from inhire
+        try:
+            cursor.execute(
+                "SELECT about_html FROM jobs_inhire_detail WHERE about_html IS NOT NULL"
+            )
+            for row in cursor.fetchall():
+                texts.append(_strip_html(row[0]))
+        except Exception:
+            pass
+
+        words = _tokenize_and_count(texts, limit)
+    else:
+        # Default: titles
+        cursor.execute("SELECT title FROM jobs_all WHERE title IS NOT NULL")
+        titles = [row[0] for row in cursor.fetchall()]
+        words = _tokenize_and_count(titles, limit)
+
+    return jsonify({'words': words, 'type': wc_type})
 
 
 def _lookup_source(cursor, job_id):
