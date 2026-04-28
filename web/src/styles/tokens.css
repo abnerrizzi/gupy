@@ -1,0 +1,73 @@
+:root {
+  --jh-primary: #2563eb;
+  --jh-primary-hover: #1d4ed8;
+  --jh-primary-50: #eff6ff;
+  --jh-primary-ring: rgba(37, 99, 235, 0.15);
+
+  --jh-bg: #f8fafc;
+  --jh-surface: #ffffff;
+  --jh-surface-2: #f1f5f9;
+  --jh-fg: #1e293b;
+  --jh-fg-strong: #0f172a;
+  --jh-fg-muted: #64748b;
+  --jh-fg-subtle: #94a3b8;
+  --jh-border: #e2e8f0;
+
+  --jh-success: #10b981;
+  --jh-warning: #d97706;
+  --jh-danger: #ef4444;
+
+  --jh-radius: 0.75rem;
+  --jh-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --jh-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --jh-shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  --jh-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --primary: var(--jh-primary);
+  --primary-hover: var(--jh-primary-hover);
+  --secondary: var(--jh-fg-muted);
+  --bg-color: var(--jh-bg);
+  --card-bg: var(--jh-surface);
+  --text-main: var(--jh-fg);
+  --text-muted: var(--jh-fg-muted);
+  --border-color: var(--jh-border);
+  --success: var(--jh-success);
+  --danger: var(--jh-danger);
+  --shadow-sm: var(--jh-shadow-sm);
+  --shadow: var(--jh-shadow);
+  --radius: var(--jh-radius);
+}
+
+:root[data-theme="dark"] {
+  --jh-primary: #3b82f6;
+  --jh-primary-hover: #60a5fa;
+  --jh-primary-50: #1e3a8a;
+  --jh-primary-ring: rgba(59, 130, 246, 0.35);
+
+  --jh-bg: #0f172a;
+  --jh-surface: #1e293b;
+  --jh-surface-2: #111827;
+  --jh-fg: #e2e8f0;
+  --jh-fg-strong: #f8fafc;
+  --jh-fg-muted: #94a3b8;
+  --jh-fg-subtle: #64748b;
+  --jh-border: #334155;
+
+  --jh-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --jh-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.6), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+  --jh-shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.7);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--jh-font-sans);
+  background: var(--jh-bg);
+  color: var(--jh-fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a { color: var(--jh-primary); text-decoration: none; }

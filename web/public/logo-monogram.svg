@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="JobHubMine">
+  <rect width="64" height="64" rx="14" fill="#2563eb"/>
+  <path d="M20 18h7v22a8 8 0 0 1-8 8h-3v-6h3a2 2 0 0 0 2-2V18zm14 0h7v12h6V18h7v30h-7V36h-6v12h-7V18z" fill="#ffffff"/>
+</svg>

@@ -326,6 +326,42 @@ CREATE VIEW job_details AS
     LEFT JOIN
         jobs_linkedin_detail ld ON j.source = 'linkedin' AND ld.id = j.id;
 
+-- 4. APP STATE (auth + tracker)
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    name TEXT,
+    surname TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+CREATE TABLE IF NOT EXISTS tracked_jobs (
+    user_id        INTEGER NOT NULL,
+    job_id         TEXT NOT NULL,
+    source         TEXT NOT NULL,
+    title          TEXT NOT NULL,
+    company_name   TEXT,
+    company_id     TEXT,
+    location       TEXT,
+    job_url        TEXT,
+    job_type       TEXT,
+    job_department TEXT,
+    workplace_type TEXT,
+    workplace_city TEXT,
+    workplace_state TEXT,
+    stage          TEXT NOT NULL DEFAULT 'salva',
+    notes          TEXT NOT NULL DEFAULT '',
+    events         TEXT NOT NULL DEFAULT '[]',
+    created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (user_id, job_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_tracked_user ON tracked_jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_tracked_user_stage ON tracked_jobs(user_id, stage);
+
 COMMIT;
 
 -- 5. ANALYTICS

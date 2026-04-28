@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 import DOMPurify from 'dompurify';
 import JsonTree from './JsonTree';
 import { formatWorkplaceType, formatJobType } from '../utils/formatters';
 import { extractCommonFacts, formatRelative } from '../utils/detailFields';
+import useModalA11y from '../hooks/useModalA11y';
 
 function pickRawJson(detail) {
   if (!detail) return null;
@@ -96,27 +97,26 @@ SourceDetail.propTypes = {
   detail: PropTypes.object,
 };
 
-function JobDetails({ job, detail, loading, error, company, onSync, onClose }) {
-  useEffect(() => {
-    if (!job) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [job, onClose]);
+function JobDetails({ job, detail, loading, error, company, onSync, onClose, onToggleSave, isSaved, onOpenTrackerNotes }) {
+  const { closeBtnRef, dialogProps } = useModalA11y({
+    isOpen: !!job,
+    onClose,
+    labelledBy: 'job-details-title',
+  });
 
   if (!job) return null;
 
   return (
     <div className="job-details-overlay" onClick={onClose}>
-      <div className="job-details-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="close-button" onClick={onClose}>&times;</button>
+      <div className="job-details-modal" onClick={(e) => e.stopPropagation()} {...dialogProps}>
+        <button ref={closeBtnRef} className="close-button" aria-label="Fechar" onClick={onClose}>&times;</button>
 
         <div className="job-details-header">
           {company?.logo_url && (
             <img src={company.logo_url} alt={company.name} className="company-logo" />
           )}
           <div>
-            <h2>{job.job_title}</h2>
+            <h2 id="job-details-title">{job.job_title}</h2>
             <h3>{job.company_name}</h3>
             {job.job_department && (
               <p className="job-department">{job.job_department}</p>
@@ -148,18 +148,35 @@ function JobDetails({ job, detail, loading, error, company, onSync, onClose }) {
             </div>
           </div>
 
-          {job.job_url && (
-            <div className="job-action">
+          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={isSaved ? 'btn btn-ghost' : 'btn btn-primary'}
+              aria-pressed={isSaved}
+              onClick={() => onToggleSave(job)}
+            >
+              {isSaved ? '♥ Remover dos salvos' : '♥ Salvar vaga'}
+            </button>
+            {isSaved && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => onOpenTrackerNotes(job)}
+              >
+                Anotações e linha do tempo
+              </button>
+            )}
+            {job.job_url && (
               <a
                 href={job.job_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="apply-button"
+                className="btn btn-ghost"
               >
                 Ver vaga no site original
               </a>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="detail-section-wrapper">
             {error && <p className="detail-error">{error}</p>}
@@ -205,6 +222,13 @@ JobDetails.propTypes = {
   }),
   onSync: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
+  onToggleSave: PropTypes.func.isRequired,
+  isSaved: PropTypes.bool,
+  onOpenTrackerNotes: PropTypes.func.isRequired,
+};
+
+JobDetails.defaultProps = {
+  isSaved: false,
 };
 
 export default JobDetails;
