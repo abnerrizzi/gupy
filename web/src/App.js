@@ -10,6 +10,7 @@ import SavedJobs from './components/SavedJobs';
 import Pipeline from './components/Pipeline';
 import Settings from './components/Settings';
 import TrackedJobModal from './components/TrackedJobModal';
+import WordCloud from './components/WordCloud';
 import ToastTray from './components/ToastTray';
 import useTrackedJobs from './hooks/useTrackedJobs';
 import useUser from './hooks/useUser';
@@ -395,6 +396,15 @@ function App() {
             trackedJobs={trackedJobs}
             onOpen={openTrackedJobDetail}
             onMove={updateStage}
+          />
+        )}
+
+        {page === 'wordcloud' && (
+          <WordCloud
+            onWordClick={(word) => {
+              setSearch(word);
+              setPage('browse');
+            }}
           />
         )}
 

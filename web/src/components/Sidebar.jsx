@@ -89,6 +89,7 @@ function Sidebar({ page, setPage, counts, user, onLogout, theme, onToggleTheme }
       </div>
       <NavItem icon="◫" label="Dashboard" active={page === 'dashboard'} onClick={() => setPage('dashboard')} />
       <NavItem icon="⌕" label="Buscar vagas" active={page === 'browse'} onClick={() => setPage('browse')} />
+      <NavItem icon="☁" label="Word Cloud" active={page === 'wordcloud'} onClick={() => setPage('wordcloud')} />
       <div className="nav-group-label">Minha jornada</div>
       <NavItem icon="♥" label="Salvas" count={counts.saved} active={page === 'saved'} onClick={() => setPage('saved')} />
       <NavItem icon="▦" label="Pipeline" count={counts.pipeline} active={page === 'pipeline'} onClick={() => setPage('pipeline')} />
